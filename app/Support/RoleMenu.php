@@ -25,19 +25,30 @@ class RoleMenu
             ['Notices', 'notices', 'Megaphone'],
         ],
         'student' => [
-            ['Class Routine', 'routine', 'CalendarDays'],
-            ['Attendance', 'attendance', 'CalendarCheck'],
-            ['Homework', 'homework', 'BookOpen'],
-            ['Results', 'results', 'ClipboardList'],
-            ['Fees', 'fees', 'Wallet'],
-            ['Notices', 'notices', 'Megaphone'],
+            ['Home', 'home', 'LayoutGrid', '/student'],
+            ['Class Routine', 'routine', 'CalendarDays', '/student/routine'],
+            ['My Calendar', 'calendar', 'CalendarDays', '/student/calendar'],
+            ['My Attendance', 'attendance', 'CalendarCheck', '/student/attendance'],
+            ['My Homework', 'homework', 'BookOpen', '/student/homework'],
+            ['My Results', 'results', 'GraduationCap', '/student/results'],
+            ['My Fees', 'fees', 'Wallet', '/student/fees'],
+            ['My Library', 'library', 'BookOpen', '/student/library'],
+            ['My Bus', 'transport', 'Bus', '/student/transport'],
+            ['My Documents', 'documents', 'FileText', '/student/documents'],
+            ['My Leave', 'leave', 'CalendarOff', '/student/leave'],
+            ['My Profile', 'profile', 'User', '/student/profile'],
         ],
         'parent' => [
-            ['My Children', 'children', 'Users'],
-            ['Attendance', 'attendance', 'CalendarCheck'],
-            ['Results', 'results', 'ClipboardList'],
-            ['Fees', 'fees', 'Wallet'],
-            ['Notices', 'notices', 'Megaphone'],
+            ['My Children', 'children', 'Users', '/parent'],
+            ['Attendance', 'attendance', 'CalendarCheck', '/parent/attendance'],
+            ['Class Routine', 'routine', 'CalendarDays', '/parent/routine'],
+            ['Calendar', 'calendar', 'CalendarDays', '/parent/calendar'],
+            ['Documents', 'documents', 'FileText', '/parent/documents'],
+            ['Leave', 'leave', 'CalendarOff', '/parent/leave'],
+            ['Homework', 'homework', 'BookOpen', '/parent/homework'],
+            ['Library', 'library', 'BookOpen', '/parent/library'],
+            ['School Bus', 'transport', 'Bus', '/parent/transport'],
+            ['My Profile', 'profile', 'User', '/parent/profile'],
         ],
     ];
 
@@ -45,7 +56,7 @@ class RoleMenu
     public static function for(?string $role): array
     {
         return array_map(
-            fn (array $i) => ['title' => $i[0], 'url' => "/m/{$i[1]}", 'icon' => $i[2]],
+            fn (array $i) => ['title' => $i[0], 'url' => $i[3] ?? "/m/{$i[1]}", 'icon' => $i[2]],
             self::ITEMS[$role] ?? [],
         );
     }

@@ -5,17 +5,20 @@ import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
     BookOpen,
+    Bus,
     CalendarCheck,
     CalendarDays,
     CalendarOff,
     Circle,
     ClipboardList,
+    FileText,
     GraduationCap,
     LayoutGrid,
     type LucideIcon,
     Megaphone,
     School,
     Settings,
+    User,
     Users,
     Wallet,
 } from 'lucide-react';
@@ -23,14 +26,18 @@ import AppLogo from './app-logo';
 
 const icons: Record<string, LucideIcon> = {
     BookOpen,
+    Bus,
     CalendarCheck,
     CalendarDays,
     CalendarOff,
     ClipboardList,
+    FileText,
     GraduationCap,
+    LayoutGrid,
     Megaphone,
     School,
     Settings,
+    User,
     Users,
     Wallet,
 };

@@ -24,8 +24,6 @@ class RoleDashboardTest extends TestCase
         return [
             'admin' => ['superadmin', 'admin'],
             'staff' => ['staff', 'staff'],
-            'student' => ['student', 'student'],
-            'parent' => ['parent', 'parent'],
         ];
     }
 
@@ -47,17 +45,17 @@ class RoleDashboardTest extends TestCase
     public function test_login_with_correct_role_succeeds(): void
     {
         $this->post('/login', ['login' => 'student', 'password' => 'Demo@1234', 'role' => 'student'])
-            ->assertRedirect('/dashboard');
+            ->assertRedirect('/student');
         $this->assertAuthenticated();
     }
 
     public function test_menu_depends_on_role(): void
     {
         $this->actingAs(User::where('username', 'student')->first())
-            ->get('/dashboard')
-            ->assertInertia(fn (Assert $page) => $page->where('menu.0.url', '/m/routine'));
+            ->get('/student')
+            ->assertInertia(fn (Assert $page) => $page->where('menu.0.url', '/student'));
 
-        $this->get('/m/routine')->assertOk();
+        $this->get('/student/routine')->assertOk();
         $this->get('/m/students')->assertNotFound();
 
         $this->actingAs(User::where('username', 'superadmin')->first())

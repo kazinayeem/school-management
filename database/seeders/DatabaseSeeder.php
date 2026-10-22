@@ -13,8 +13,9 @@ class DatabaseSeeder extends Seeder
         $accounts = [
             ['superadmin', 'admin', 'Super Admin'],
             ['staff', 'staff', 'Staff Member'],
-            ['student', 'student', 'Student'],
-            ['parent', 'parent', 'Parent'],
+            ['student', 'student', 'Ethan Parker'],
+            ['nusrat', 'student', 'Nusrat Jahan'],
+            ['parent', 'parent', 'Amelia Parker'],
         ];
 
         foreach ($accounts as [$username, $role, $name]) {
@@ -25,5 +26,7 @@ class DatabaseSeeder extends Seeder
                 'password' => Hash::make('Demo@1234'),
             ]);
         }
+
+        $this->call(PortalSeeder::class);
     }
 }

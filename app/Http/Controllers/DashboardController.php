@@ -3,15 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request): Response|RedirectResponse
     {
         $role = $request->user()->role;
+
+        if ($role === 'student') {
+            return redirect('/student');
+        }
+
+        if ($role === 'parent') {
+            return redirect('/parent');
+        }
 
         return Inertia::render("dashboards/{$role}", match ($role) {
             'admin' => [

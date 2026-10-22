@@ -12,7 +12,7 @@ class OfficeMenu
     /** @return list<array{caption: ?string, items: list<array<string, mixed>>}> */
     public static function for(string $role): array
     {
-        return $role === 'admin' ? self::admin() : self::staff();
+        return $role === 'admin' ? self::admin() : self::filter($role, self::staff());
     }
 
     public static function allows(string $role, string $path): bool
@@ -66,6 +66,33 @@ class OfficeMenu
         }
 
         return $items;
+    }
+
+    /** Hide the modules an admin has not granted to this role. */
+    private static function filter(string $role, array $groups): array
+    {
+        $granted = Permissions::granted($role);
+        $out = [];
+
+        foreach ($groups as $group) {
+            $items = [];
+            foreach ($group['items'] as $item) {
+                if (isset($item['children'])) {
+                    $item['children'] = array_values(array_filter($item['children'], fn ($c) => Permissions::moduleOf($c['href']) === null || in_array(Permissions::moduleOf($c['href']), $granted, true)));
+                    if ($item['children'] === []) {
+                        continue;
+                    }
+                } elseif (isset($item['href']) && Permissions::moduleOf($item['href']) !== null && ! in_array(Permissions::moduleOf($item['href']), $granted, true)) {
+                    continue;
+                }
+                $items[] = $item;
+            }
+            if ($items !== []) {
+                $out[] = ['caption' => $group['caption'], 'items' => $items];
+            }
+        }
+
+        return $out;
     }
 
     private static function staff(): array

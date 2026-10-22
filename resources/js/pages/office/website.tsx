@@ -8,8 +8,9 @@ import { FormEvent, useState } from 'react';
 type Field = {
     name: string;
     label: string;
-    type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'checkbox' | 'select';
+    type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'datetime' | 'checkbox' | 'select';
     hint?: string;
+    step?: string;
     default?: unknown;
     options?: { value: string; label: string }[];
 };
@@ -18,11 +19,18 @@ type Row = Record<string, any> & { id: number };
 
 const input = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-fuchsia-500';
 
+const cell = (f: Field, value: unknown) => {
+    const text = String(value ?? '');
+    if (f.type === 'time') return text.slice(0, 5);
+    if (f.type === 'datetime') return text.replace(' ', 'T').slice(0, 16);
+    return text;
+};
+
 const initial = (fields: Field[], row?: Row) =>
     Object.fromEntries(
         fields.map((f) => [
             f.name,
-            row ? (f.type === 'checkbox' ? Boolean(row[f.name]) : (row[f.name] ?? '')) : (f.default ?? (f.type === 'checkbox' ? false : '')),
+            row ? (f.type === 'checkbox' ? Boolean(row[f.name]) : cell(f, row[f.name])) : (f.default ?? (f.type === 'checkbox' ? false : '')),
         ]),
     );
 
@@ -59,7 +67,8 @@ function Fields({ fields, form }: { fields: Field[]; form: ReturnType<typeof use
                                 />
                             ) : (
                                 <input
-                                    type={f.type}
+                                    type={f.type === 'datetime' ? 'datetime-local' : f.type}
+                                    step={f.step}
                                     className={input}
                                     value={form.data[f.name] ?? ''}
                                     onChange={(e) => form.setData(f.name, e.target.value)}

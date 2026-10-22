@@ -21,7 +21,8 @@ const read = (): Locale => {
     } catch {
         // storage can be blocked; fall back to English
     }
-    return 'en';
+    const fallback = (window as unknown as { __defaults?: { locale?: string } }).__defaults?.locale;
+    return fallback === 'bn' || fallback === 'ar' ? fallback : 'en';
 };
 
 let current: Locale = read();

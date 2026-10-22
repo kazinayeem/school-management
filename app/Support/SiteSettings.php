@@ -15,4 +15,12 @@ class SiteSettings
     {
         return (int) self::get($key, (string) $default);
     }
+
+    /** @return list<string> */
+    public static function enabledLanguages(): array
+    {
+        $enabled = array_values(array_filter(['en', 'bn', 'ar'], fn ($code) => self::get("lang_{$code}", '1') === '1'));
+
+        return $enabled === [] ? ['en'] : $enabled;
+    }
 }

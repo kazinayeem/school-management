@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\AcademicResources;
+use App\Support\Audit;
 use App\Support\OfficeMenu;
 use App\Support\OperationsResources;
 use App\Support\WebsiteResources;
@@ -70,7 +71,7 @@ class WebsiteController extends Controller
         return Inertia::render('office/website', [
             ...$shared,
             'resource' => $resource,
-            'baseUrl' => '/app/'.$this->group($request).'/'.$resource,
+            'baseUrl' => $def['base'] ?? '/app/'.$this->group($request).'/'.$resource,
             'definition' => ['fields' => $fields] + collect($def)->only(['label', 'subtitle', 'columns', 'column_labels'])->all(),
             'rows' => $rows,
         ]);
@@ -83,6 +84,7 @@ class WebsiteController extends Controller
 
         $newId = DB::table($def['table'])->insertGetId($this->payload($request, $resource, $def) + ['created_at' => now(), 'updated_at' => now()]);
         $this->afterSave($resource, $newId);
+        Audit::log('created', $def['label'], "#{$newId}");
 
         return back()->with('status', 'Entry added.');
     }
@@ -95,6 +97,7 @@ class WebsiteController extends Controller
 
         DB::table($def['table'])->where('id', $id)->update($this->payload($request, $resource, $def, $id) + ['updated_at' => now()]);
         $this->afterSave($resource, $id);
+        Audit::log('updated', $def['label'], "#{$id}");
 
         return back()->with('status', 'Entry updated.');
     }
@@ -113,6 +116,7 @@ class WebsiteController extends Controller
         }
 
         DB::table($def['table'])->where('id', $id)->delete();
+        Audit::log('deleted', $def['label'], "#{$id}");
 
         return back()->with('status', 'Entry deleted.');
     }
@@ -166,6 +170,7 @@ class WebsiteController extends Controller
                 'checkbox' => (int) (bool) $value,
                 'number' => (int) ($value ?? ($f['default'] ?? 0)),
                 'select' => ($value === '' || $value === null) ? null : $value,
+                'datetime' => $value === null ? null : str_replace('T', ' ', (string) $value),
                 default => $value,
             };
         }
@@ -187,7 +192,10 @@ class WebsiteController extends Controller
             $q = $f['options_query'];
             unset($f['options_query']);
 
-            if ($q === 'staff') {
+            if ($q === 'people') {
+                $f['options'] = DB::table('users')->whereIn('role', ['staff', 'student'])->orderBy('role')->orderBy('name')->limit(1500)->get(['id', 'name', 'role'])
+                    ->map(fn ($u) => ['value' => (string) $u->id, 'label' => "{$u->name} ({$u->role})"])->all();
+            } elseif ($q === 'staff') {
                 $f['options'] = DB::table('users')->where('role', 'staff')->orderBy('name')->get(['id', 'name'])
                     ->map(fn ($u) => ['value' => (string) $u->id, 'label' => $u->name])->all();
             } elseif ($q === 'students') {

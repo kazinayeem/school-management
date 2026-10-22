@@ -38,7 +38,58 @@ Route::middleware(['auth'])->group(function () {
         Route::put('online/{id}', 'reconcile')->whereNumber('id')->name('fees.online.reconcile');
     });
 
+    Route::controller(\App\Http\Controllers\TimetableController::class)->prefix('app/timetable')->group(function () {
+        Route::get('/', 'routine')->name('timetable.routine');
+        Route::post('/', 'saveRoutine')->name('timetable.routine.save');
+        Route::get('teacher', 'teacher')->name('timetable.teacher');
+        Route::get('substitutions', 'substitutions')->name('timetable.substitutions');
+        Route::post('substitutions', 'storeSubstitution')->name('timetable.substitutions.store');
+        Route::delete('substitutions/{id}', 'destroySubstitution')->whereNumber('id')->name('timetable.substitutions.destroy');
+    });
+
+    Route::controller(\App\Http\Controllers\CertificatesController::class)->prefix('app/certificates')->group(function () {
+        Route::get('/', 'issueForm')->name('certificates.issue');
+        Route::post('/', 'issue')->name('certificates.issue.run');
+        Route::get('history', 'history')->name('certificates.history');
+        Route::get('{id}/print', 'print')->whereNumber('id')->name('certificates.print');
+    });
+
+    Route::controller(\App\Http\Controllers\PayrollController::class)->prefix('app/payroll')->group(function () {
+        Route::get('/', 'runs')->name('payroll.runs');
+        Route::post('/', 'generate')->name('payroll.generate');
+        Route::put('{id}/pay', 'pay')->whereNumber('id')->name('payroll.pay');
+        Route::delete('{id}', 'destroy')->whereNumber('id')->name('payroll.destroy');
+        Route::get('structures', 'structures')->name('payroll.structures');
+        Route::post('structures', 'saveStructure')->name('payroll.structures.save');
+    });
+
+    Route::controller(\App\Http\Controllers\SmsController::class)->prefix('app/sms')->group(function () {
+        Route::get('/', 'compose')->name('sms.compose');
+        Route::post('/', 'send')->name('sms.send');
+        Route::get('log', 'log')->name('sms.log');
+        Route::put('log/{id}', 'mark')->whereNumber('id')->name('sms.mark');
+    });
+
+    Route::controller(\App\Http\Controllers\SystemController::class)->group(function () {
+        Route::get('app/system/audit', 'audit')->name('system.audit');
+        Route::get('app/system/roles', 'roles')->name('system.roles');
+        Route::post('app/system/roles', 'saveRoles')->name('system.roles.save');
+    });
+
+    Route::controller(\App\Http\Controllers\BackupController::class)->prefix('app/settings/backup')->group(function () {
+        Route::get('/', 'index')->name('backup.index');
+        Route::post('/', 'create')->name('backup.create');
+        Route::get('{name}', 'download')->name('backup.download');
+        Route::delete('{name}', 'destroy')->name('backup.destroy');
+        Route::post('{name}/restore', 'restore')->name('backup.restore');
+    });
+
     Route::controller(\App\Http\Controllers\SettingsFormController::class)->group(function () {
+        foreach (['general' => '/app/settings/general', 'attendance' => '/app/settings/attendance', 'fees' => '/app/settings/fees', 'mail' => '/app/settings/mail', 'appearance' => '/app/settings/appearance', 'languages' => '/app/settings/languages', 'smsgateway' => '/app/sms/settings'] as $form => $path) {
+            Route::get($path, 'show')->defaults('form', $form)->name("settings.{$form}");
+            Route::post($path, 'save')->defaults('form', $form);
+        }
+
         Route::get('app/fees/gateway', 'show')->defaults('form', 'gateway')->name('settings.gateway');
         Route::post('app/fees/gateway', 'save')->defaults('form', 'gateway');
         Route::get('app/library/settings', 'show')->defaults('form', 'library')->name('settings.library');
@@ -67,7 +118,14 @@ Route::middleware(['auth'])->group(function () {
         Route::put('reservations/{id}', 'updateReservation')->whereNumber('id')->name('library.reservations.update');
     });
 
-    foreach (['academic' => \App\Support\AcademicResources::slugs(), 'fees' => \App\Support\OperationsResources::slugs('fees'), 'accounting' => \App\Support\OperationsResources::slugs('accounting'), 'library' => \App\Support\OperationsResources::slugs('library')] as $group => $slugs) {
+    Route::controller(\App\Http\Controllers\WebsiteController::class)->prefix('app/devices')->group(function () {
+        Route::get('/', 'index')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.index');
+        Route::post('/', 'store')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.store');
+        Route::put('{id}', 'update')->whereNumber('id')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.update');
+        Route::delete('{id}', 'destroy')->whereNumber('id')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.destroy');
+    });
+
+    foreach (['academic' => \App\Support\AcademicResources::slugs(), 'fees' => \App\Support\OperationsResources::slugs('fees'), 'accounting' => \App\Support\OperationsResources::slugs('accounting'), 'library' => \App\Support\OperationsResources::slugs('library'), 'devices' => \App\Support\OperationsResources::slugs('devices'), 'certificates' => \App\Support\OperationsResources::slugs('certificates'), 'leave' => \App\Support\OperationsResources::slugs('leave'), 'timetable' => \App\Support\OperationsResources::slugs('timetable'), 'payroll' => \App\Support\OperationsResources::slugs('payroll'), 'sms' => \App\Support\OperationsResources::slugs('sms'), 'settings' => \App\Support\OperationsResources::slugs('settings')] as $group => $slugs) {
         Route::prefix("app/{$group}")->controller(\App\Http\Controllers\WebsiteController::class)->group(function () use ($group, $slugs) {
             Route::get('{resource}', 'index')->where('resource', $slugs)->defaults('group', $group)->name("{$group}.index");
             Route::post('{resource}', 'store')->where('resource', $slugs)->defaults('group', $group)->name("{$group}.store");

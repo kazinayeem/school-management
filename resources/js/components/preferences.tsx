@@ -1,6 +1,7 @@
 import { useAppearance } from '@/hooks/use-appearance';
 import { locales, useI18n } from '@/lib/i18n';
 import { ChevronDown, Moon, Sun } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 export function useIsDark() {
@@ -14,6 +15,8 @@ export function useIsDark() {
 export function LanguageMenu({ className = '' }: { className?: string }) {
     const { locale, setLocale } = useI18n();
     const [open, setOpen] = useState(false);
+    const enabled = (usePage().props as { enabledLanguages?: string[] }).enabledLanguages ?? ['en', 'bn', 'ar'];
+    const available = locales.filter((l) => enabled.includes(l.code));
     const current = locales.find((l) => l.code === locale)!;
 
     return (
@@ -28,7 +31,7 @@ export function LanguageMenu({ className = '' }: { className?: string }) {
             </button>
             {open && (
                 <div className="absolute end-0 z-50 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-                    {locales.map((l) => (
+                    {available.map((l) => (
                         <button
                             key={l.code}
                             type="button"

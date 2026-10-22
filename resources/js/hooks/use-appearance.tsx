@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 
 export type Appearance = 'light' | 'dark' | 'system';
 
+const defaultAppearance = (): Appearance => {
+    const theme = (window as unknown as { __defaults?: { theme?: string } }).__defaults?.theme;
+
+    return theme === 'light' || theme === 'dark' ? theme : 'system';
+};
+
 const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
 
 const applyTheme = (appearance: Appearance) => {
@@ -18,7 +24,7 @@ const handleSystemThemeChange = () => {
 };
 
 export function initializeTheme() {
-    const savedAppearance = (localStorage.getItem('appearance') as Appearance) || 'system';
+    const savedAppearance = (localStorage.getItem('appearance') as Appearance) || defaultAppearance();
 
     applyTheme(savedAppearance);
 
@@ -37,7 +43,7 @@ export function useAppearance() {
 
     useEffect(() => {
         const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
-        updateAppearance(savedAppearance || 'system');
+        updateAppearance(savedAppearance || defaultAppearance());
 
         return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
     }, []);

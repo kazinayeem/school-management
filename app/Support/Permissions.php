@@ -54,6 +54,7 @@ class Permissions
         '#^/app/fees/gateway#',
         '#^/app/library/settings#',
         '#^/app/sms/settings#',
+        '#^/app/website/settings#',
     ];
 
     /** @var array<string, list<string>> */

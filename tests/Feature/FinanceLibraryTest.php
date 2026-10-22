@@ -244,7 +244,10 @@ class FinanceLibraryTest extends TestCase
         foreach (['/app/library', '/app/library/desk', '/app/library/fines'] as $path) {
             $this->get($path)->assertOk();
         }
-        foreach (['/app/library/reservations', '/app/library/settings', '/app/library/books', '/app/accounting', '/app/fees/generate', '/app/fees/gateway'] as $path) {
+        foreach (['/app/library/reservations', '/app/library/books'] as $path) {
+            $this->get($path)->assertOk();
+        }
+        foreach (['/app/library/settings', '/app/accounting', '/app/fees/generate', '/app/fees/gateway'] as $path) {
             $this->get($path)->assertForbidden();
         }
     }

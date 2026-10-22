@@ -36,19 +36,19 @@ class PeopleTransportTest extends TestCase
     {
         $this->admin();
 
-        $this->post('/app/staff', ['name' => 'New Teacher', 'password' => 'short'])->assertSessionHasErrors('password');
+        $this->post('/app/staff', ['name' => 'New Teacher', 'role' => 'teacher', 'password' => 'short'])->assertSessionHasErrors('password');
         $this->post('/app/staff', ['name' => 'New Teacher', 'role' => 'teacher', 'password' => 'Secret123', 'designation' => 'Math Teacher', 'phone' => '01700000001', 'joined_on' => '2026-01-05'])->assertRedirect('/app/staff');
 
         $user = User::where('name', 'New Teacher')->first();
         $this->assertSame(['teacher', 'new.teacher', 'new.teacher@borno.test', true], [$user->role, $user->username, $user->email, $user->is_active]);
         $this->assertMatchesRegularExpression('/^EMP-\d{4}$/', (string) DB::table('staff_profiles')->where('user_id', $user->id)->value('employee_no'));
 
-        $this->post('/app/staff', ['name' => 'Other', 'username' => 'new.teacher', 'password' => 'Secret123'])->assertSessionHasErrors('username');
-        $this->post('/app/staff', ['name' => 'Same Name', 'password' => 'Secret123'])->assertSessionHasNoErrors();
-        $this->post('/app/staff', ['name' => 'Same Name', 'password' => 'Secret123'])->assertSessionHasNoErrors();
+        $this->post('/app/staff', ['name' => 'Other', 'role' => 'teacher', 'username' => 'new.teacher', 'password' => 'Secret123'])->assertSessionHasErrors('username');
+        $this->post('/app/staff', ['name' => 'Same Name', 'role' => 'staff', 'password' => 'Secret123'])->assertSessionHasNoErrors();
+        $this->post('/app/staff', ['name' => 'Same Name', 'role' => 'staff', 'password' => 'Secret123'])->assertSessionHasNoErrors();
         $this->assertSame(['same.name', 'same.name.2'], User::where('name', 'Same Name')->orderBy('id')->pluck('username')->all());
 
-        $this->put("/app/staff/{$user->id}", ['name' => 'New Teacher', 'designation' => 'Head of Maths', 'department' => 'Science', 'is_active' => true])->assertRedirect('/app/staff');
+        $this->put("/app/staff/{$user->id}", ['name' => 'New Teacher', 'role' => 'teacher', 'designation' => 'Head of Maths', 'department' => 'Science', 'is_active' => true])->assertRedirect('/app/staff');
         $this->assertSame('Head of Maths', DB::table('staff_profiles')->where('user_id', $user->id)->value('designation'));
         $this->assertTrue(\Hash::check('Secret123', $user->fresh()->password), 'an empty password keeps the old one');
 
@@ -122,7 +122,7 @@ class PeopleTransportTest extends TestCase
         $this->admin();
         $staff = User::factory()->create(['role' => 'teacher', 'username' => 'sam', 'password' => 'OldPass123']);
 
-        $this->get('/app/system/users?role=staff&search=sam')->assertInertia(fn (Assert $p) => $p->has('rows', 1)->where('rows.0.username', 'sam')->where('counts.admin', 1));
+        $this->get('/app/system/users?role=teacher&search=sam')->assertInertia(fn (Assert $p) => $p->has('rows', 1)->where('rows.0.username', 'sam')->where('counts.admin', 1));
 
         $this->put("/app/system/users/{$staff->id}/password", ['password' => 'short'])->assertSessionHasErrors('password');
         $this->put("/app/system/users/{$staff->id}/password", ['password' => 'BrandNew123'])->assertSessionHasNoErrors();

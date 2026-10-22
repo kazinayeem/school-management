@@ -251,6 +251,7 @@ class OfficeData
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'photo' => $user->photo_url,
                     'admissionNo' => $profile->admission_no ?? '—',
                     'class' => trim(str_replace('Class ', '', (string) $profile->class_name).'-'.$profile->section, '-'),
                     'roll' => $profile->roll_no ?? '—',

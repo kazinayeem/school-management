@@ -18,6 +18,7 @@ class ExamsTest extends TestCase
     {
         parent::setUp();
         Grading::flush();
+        DB::table('rooms')->insert([['name' => '101', 'kind' => 'classroom', 'capacity' => 40, 'active' => 1], ['name' => '102', 'kind' => 'classroom', 'capacity' => 40, 'active' => 1]]);
     }
 
     private function admin(): User

@@ -24,7 +24,7 @@ class PublicSiteTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('public/site')
                 ->where('page.kind', 'home')
-                ->where('page.ticker.title', 'Admission for the upcoming academic session is open'));
+                ->where('page.ticker.title', 'Victory Day programme'));
     }
 
     public function test_a_family_can_apply_and_track_admission(): void
@@ -56,7 +56,7 @@ class PublicSiteTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('page.result.found', true)
-                ->where('page.result.name', 'Ethan Parker')
+                ->where('page.result.name', 'Tanvir Ahmed')
                 ->has('page.result.rows'));
     }
 

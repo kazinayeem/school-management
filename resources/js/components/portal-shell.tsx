@@ -1,3 +1,4 @@
+import { Avatar } from '@/components/avatar';
 import { LanguageMenu, ThemeToggle } from '@/components/preferences';
 import { useI18n } from '@/lib/i18n';
 import { type SharedData } from '@/types';
@@ -9,7 +10,6 @@ import {
     CalendarCheck,
     CalendarDays,
     CalendarOff,
-    ChevronDown,
     FileText,
     LayoutGrid,
     LogOut,
@@ -73,7 +73,9 @@ export function PortalShell({
                                 key={item.url}
                                 href={href}
                                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                                    active ? 'bg-gradient-to-r from-[#6d1167] to-[#4c1d95] text-white shadow-lg shadow-fuchsia-900/20' : 'hover:bg-white/5 hover:text-white'
+                                    active
+                                        ? 'bg-gradient-to-r from-[#6d1167] to-[#4c1d95] text-white shadow-lg shadow-fuchsia-900/20'
+                                        : 'hover:bg-white/5 hover:text-white'
                                 }`}
                             >
                                 <Icon className="h-4 w-4 shrink-0" />
@@ -82,7 +84,12 @@ export function PortalShell({
                         );
                     })}
                 </nav>
-                <button type="button" aria-label="Collapse sidebar" onClick={() => setOpen(!open)} className="m-3 flex items-center justify-center rounded-xl py-2 text-lg text-slate-500 hover:bg-white/5 hover:text-white">
+                <button
+                    type="button"
+                    aria-label="Collapse sidebar"
+                    onClick={() => setOpen(!open)}
+                    className="m-3 flex items-center justify-center rounded-xl py-2 text-lg text-slate-500 hover:bg-white/5 hover:text-white"
+                >
                     «
                 </button>
             </aside>
@@ -101,7 +108,12 @@ export function PortalShell({
                             <CalendarDays className="h-3.5 w-3.5" /> {sessionLabel}
                         </span>
                         <div className="relative">
-                            <button type="button" aria-label="Notifications" onClick={() => setBell(!bell)} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+                            <button
+                                type="button"
+                                aria-label="Notifications"
+                                onClick={() => setBell(!bell)}
+                                className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                            >
                                 <Bell className="h-4 w-4" />
                                 {notices.length > 0 && (
                                     <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
@@ -127,9 +139,7 @@ export function PortalShell({
                         <LanguageMenu className="hidden sm:block" />
                         <ThemeToggle />
                         <div className="flex items-center gap-2 border-s border-slate-200 ps-2">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-pink-50 text-sm font-bold text-[#b31299]">
-                                {auth.user.name.charAt(0)}
-                            </span>
+                            <Avatar name={auth.user.name} src={auth.user.photo_url} className="h-8 w-8 text-sm" />
                             <span className="hidden leading-tight sm:block">
                                 <span className="block text-sm font-semibold text-slate-800">{auth.user.name}</span>
                                 <span className="block text-[11px] text-slate-400">{t(roleLabel)}</span>

@@ -29,7 +29,7 @@ class OfficeTest extends TestCase
         $this->get('/app')->assertInertia(fn (Assert $page) => $page
             ->component('office/home')
             ->where('dashboard.firstName', 'Super')
-            ->where('dashboard.metrics.0.value', '190')
+            ->where('dashboard.metrics.0.value', '60')
             ->where('navigation.3.caption', 'Finance'));
     }
 
@@ -43,7 +43,7 @@ class OfficeTest extends TestCase
 
         $this->get('/app')->assertInertia(fn (Assert $page) => $page
             ->component('office/home')
-            ->where('dashboard.firstName', 'John')
+            ->where('dashboard.firstName', 'Md.')
             ->where('roleLabel', 'Teacher')
             ->has('navigation', 5)
             ->where('navigation.1.caption', 'Academic'));
@@ -58,16 +58,17 @@ class OfficeTest extends TestCase
         $ethan = User::where('username', 'student')->first();
 
         $this->actingAs($staff)
-            ->get('/app/students?q=Ethan')
+            ->get('/app/students?q=Tanvir')
             ->assertInertia(fn (Assert $page) => $page
                 ->component('office/module')
                 ->where('module.kind', 'students')
-                ->where('module.rows.0.name', 'Ethan Parker'));
+                ->where('module.rows.0.name', 'Tanvir Ahmed'));
 
         $this->get('/app/students/'.$ethan->id)
             ->assertInertia(fn (Assert $page) => $page
-                ->where('module.kind', 'profile')
-                ->where('module.student.username', 'student'));
+                ->component('office/student-file')
+                ->where('student.username', 'student')
+                ->where('student.name', 'Tanvir Ahmed'));
 
         $this->post('/app/attendance', [
             'section' => 'Class 8-A',

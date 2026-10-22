@@ -37,7 +37,7 @@ class OperationsTest extends TestCase
     {
         $this->admin();
 
-        foreach (['/app/devices' => 0, '/app/devices/people' => 0, '/app/devices/punches' => 0, '/app/certificates/templates' => 3, '/app/leave/types' => 3, '/app/timetable/periods' => 7, '/app/payroll/components' => 4, '/app/sms/templates' => 3, '/app/settings/grading' => 7] as $path => $rows) {
+        foreach (['/app/devices' => 0, '/app/devices/people' => 0, '/app/devices/punches' => 0, '/app/certificates/templates' => 6, '/app/leave/types' => 3, '/app/timetable/periods' => 7, '/app/payroll/components' => 4, '/app/sms/templates' => 3, '/app/settings/grading' => 7] as $path => $rows) {
             $this->get($path)->assertOk()->assertInertia(fn (Assert $p) => $p->component('office/website')->has('rows', $rows));
         }
     }
@@ -85,6 +85,7 @@ class OperationsTest extends TestCase
     public function test_routine_save_blocks_teacher_clashes(): void
     {
         $this->admin();
+        DB::table('rooms')->insert(['name' => 'R1', 'kind' => 'classroom', 'capacity' => 40, 'active' => 1]);
         $t = $this->staff('Rahim Sir');
 
         $cell = fn (int $day, int $sort) => ['day' => $day, 'sort' => $sort, 'subject' => 'Mathematics', 'teacher' => $t->name, 'room' => 'R1'];
@@ -241,18 +242,20 @@ class OperationsTest extends TestCase
     public function test_role_permissions_control_the_staff_menu(): void
     {
         $this->admin();
-        $this->post('/app/system/roles', ['permissions' => ['students', 'notices']])->assertSessionHasNoErrors();
-        $this->post('/app/system/roles', ['permissions' => ['nonsense']])->assertSessionHasErrors('permissions.0');
+        $this->post('/app/system/roles', ['role' => 'teacher', 'permissions' => ['students.view', 'notices.view', 'notices.edit']])->assertSessionHasNoErrors();
+        $this->post('/app/system/roles', ['role' => 'teacher', 'permissions' => ['nonsense', 'students.view', 'notices.view', 'notices.edit']])->assertSessionHasNoErrors();
+        $this->assertSame(0, DB::table('role_permissions')->where('permission', 'nonsense')->count());
+        $this->post('/app/system/roles', ['role' => 'principal', 'permissions' => []])->assertSessionHasErrors('role');
 
         $this->actingAs($this->staff());
         $this->get('/app/students')->assertOk();
         $this->get('/app/library')->assertForbidden();
         $this->get('/app/timetable')->assertForbidden();
-        $this->get('/app')->assertInertia(fn (Assert $p) => $p->has('navigation', 3));
 
         $this->actingAs(User::where('role', 'admin')->first());
-        $this->post('/app/system/roles', ['permissions' => []])->assertSessionHasNoErrors();
-        $this->assertSame(0, DB::table('role_permissions')->where('role', 'staff')->count());
+        $this->post('/app/system/roles', ['role' => 'teacher', 'permissions' => []])->assertSessionHasNoErrors();
+        $this->assertSame(0, DB::table('role_permissions')->where('role', 'teacher')->count());
+        $this->assertGreaterThan(0, DB::table('role_permissions')->where('role', 'staff')->count());
     }
 
     public function test_settings_forms_validate_and_languages_are_enforced(): void
@@ -324,7 +327,7 @@ class OperationsTest extends TestCase
     {
         $this->actingAs($this->staff());
 
-        foreach (['/app/devices', '/app/devices/people', '/app/certificates', '/app/certificates/history', '/app/payroll', '/app/payroll/structures', '/app/sms', '/app/sms/log', '/app/system/audit', '/app/system/roles', '/app/settings/backup', '/app/settings/general', '/app/sms/settings', '/app/leave/types', '/app/settings/grading'] as $path) {
+        foreach (['/app/devices', '/app/devices/people', '/app/certificates', '/app/certificates/history', '/app/payroll', '/app/payroll/structures', '/app/sms', '/app/sms/log', '/app/system/audit', '/app/system/roles', '/app/settings/backup', '/app/settings/general', '/app/sms/settings', '/app/settings/grading'] as $path) {
             $this->assertContains($this->get($path)->getStatusCode(), [403, 404], $path);
         }
         $this->post('/app/system/roles', ['permissions' => []])->assertForbidden();

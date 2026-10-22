@@ -59,6 +59,7 @@ export interface SharedData {
 }
 
 export interface User {
+    photo_url?: string | null;
     id: number;
     name: string;
     email: string;

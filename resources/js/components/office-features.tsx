@@ -1,3 +1,4 @@
+import { Avatar } from '@/components/avatar';
 import { Link, router, useForm } from '@inertiajs/react';
 import { Download, Eye, Pencil, ReceiptText, Search, Upload, UserRound } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
@@ -5,6 +6,7 @@ import { FormEvent, useEffect, useState } from 'react';
 type StudentRow = {
     id: number;
     name: string;
+    photo?: string | null;
     admissionNo: string;
     class: string;
     roll: string;
@@ -151,7 +153,12 @@ export function StudentsView({ module }: { module: Record<string, any> }) {
                         <tbody className="divide-y divide-slate-100">
                             {rows.map((row) => (
                                 <tr key={row.id} className="hover:bg-slate-50">
-                                    <td className="px-4 py-3 font-medium text-slate-900">{row.name}</td>
+                                    <td className="px-4 py-3 font-medium text-slate-900">
+                                        <Link href={`/app/students/${row.id}`} className="flex items-center gap-3 hover:text-[#b31299]">
+                                            <Avatar name={row.name} src={row.photo} className="h-9 w-9 text-sm" />
+                                            {row.name}
+                                        </Link>
+                                    </td>
                                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{row.admissionNo}</td>
                                     <td className="px-4 py-3">{row.class}</td>
                                     <td className="px-4 py-3">{row.roll}</td>

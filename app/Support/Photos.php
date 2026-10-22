@@ -18,7 +18,8 @@ class Photos
 
     public static function url(?string $path): ?string
     {
-        return $path ? self::disk()->url($path) : null;
+        // Relative, so it works on whatever host or port the app is served from.
+        return $path ? parse_url(self::disk()->url($path), PHP_URL_PATH) : null;
     }
 
     /**

@@ -22,7 +22,7 @@ class PortalData
 
         return [
             'name' => $user->name,
-            'photo' => asset('images/student.jpg'),
+            'photo' => $user->photo_url ?? asset('images/student.jpg'),
             'email' => $user->email,
             'phone' => $user->phone,
             'class' => $profile->class_name,

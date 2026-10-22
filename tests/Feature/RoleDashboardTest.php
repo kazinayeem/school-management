@@ -70,6 +70,6 @@ class RoleDashboardTest extends TestCase
 
         $this->actingAs(User::where('username', 'jsmith')->first())
             ->get('/app/fees')
-            ->assertNotFound();
+            ->assertForbidden();
     }
 }

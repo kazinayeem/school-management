@@ -204,6 +204,15 @@ Route::middleware(['auth'])->group(function () {
         });
     }
 
+    Route::controller(\App\Http\Controllers\StudentFileController::class)->prefix('app/students/{id}')->whereNumber('id')->group(function () {
+        Route::get('/', 'show')->name('students.file');
+        Route::get('transcript', 'document')->defaults('mode', 'transcript')->name('students.transcript');
+        Route::get('print', 'document')->defaults('mode', 'file')->name('students.print');
+        Route::get('export', 'export')->name('students.export');
+        Route::post('notes', 'storeNote')->name('students.notes.store');
+        Route::delete('notes/{note}', 'destroyNote')->whereNumber('note')->name('students.notes.destroy');
+    });
+
     Route::controller(\App\Http\Controllers\StudentToolsController::class)->prefix('app/students')->group(function () {
         Route::get('import', 'importForm')->name('students.import');
         Route::get('import/template', 'importTemplate')->name('students.import.template');

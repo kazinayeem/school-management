@@ -27,7 +27,7 @@ class OfficeActionController extends Controller
             'title' => $data['title'],
             'body' => $data['body'],
             'published_on' => $data['published_on'],
-            'expires_on' => $data['expires_on'] ?: null,
+            'expires_on' => ($data['expires_on'] ?? null) ?: null,
         ]);
 
         return redirect('/app/notices');

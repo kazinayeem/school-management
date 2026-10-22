@@ -28,7 +28,7 @@ class PortalTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('portals/student')
                 ->where('page', 'home')
-                ->where('profile.name', 'Ethan Parker')
+                ->where('profile.name', 'Tanvir Ahmed')
                 ->where('profile.class', 'Class 8'));
 
         foreach (['routine', 'calendar', 'attendance', 'homework', 'results', 'fees', 'library', 'transport', 'documents', 'leave', 'profile'] as $section) {
@@ -49,7 +49,7 @@ class PortalTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('portals/parent')
                 ->has('children', 1)
-                ->where('account.name', 'David Parker')
+                ->where('account.name', 'Md. Kamal Uddin Ahmed')
                 ->where('profile.class', 'Class 8'));
 
         $this->get('/student')->assertForbidden();

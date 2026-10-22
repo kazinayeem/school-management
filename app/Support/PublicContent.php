@@ -79,7 +79,12 @@ class PublicContent
 
     public static function exams(): array
     {
+        $published = \Illuminate\Support\Facades\DB::table('exam_publications')->join('exams', 'exams.id', '=', 'exam_publications.exam_id')
+            ->orderByDesc('exam_publications.id')->get(['exam_publications.exam_id', 'exam_publications.class_name', 'exams.name'])
+            ->map(fn ($p) => ['value' => "exam-{$p->exam_id}-".\Illuminate\Support\Str::slug($p->class_name), 'label' => "{$p->name} — {$p->class_name}", 'class' => $p->class_name, 'exam' => $p->name])->all();
+
         return [
+            ...$published,
             ['value' => 'half-yearly-8', 'label' => 'Half Yearly Examination 2026 — Class 8', 'class' => 'Class 8', 'exam' => 'Half Yearly Examination 2026'],
             ['value' => 'half-yearly-5', 'label' => 'Half Yearly Examination 2026 — Class 5', 'class' => 'Class 5', 'exam' => 'Half Yearly Examination 2026'],
         ];

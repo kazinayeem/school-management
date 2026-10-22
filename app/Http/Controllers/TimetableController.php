@@ -139,7 +139,7 @@ class TimetableController extends Controller
             'date' => ['required', 'date', 'after_or_equal:today'],
             'class_name' => ['required', Rule::in($this->classes())],
             'section' => ['required', Rule::in(['A', 'B'])],
-            'period_label' => ['required', Rule::exists('bell_periods', 'label')->where('is_break', false)],
+            'period_label' => ['required', Rule::exists('bell_periods', 'label')->where('is_break', 0)],
             'substitute_user_id' => ['required', Rule::exists('users', 'id')->where('role', 'staff')],
             'reason' => ['nullable', 'string', 'max:255'],
         ]);

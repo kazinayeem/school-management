@@ -200,6 +200,29 @@ class OperationsResources
                     ],
                 ],
             ],
+            'transport' => [
+                'vehicles' => [
+                    'label' => 'Vehicles',
+                    'subtitle' => 'School buses and vans, their drivers and how many students they carry.',
+                    'table' => 'transport_vehicles',
+                    'order' => ['name', 'asc'],
+                    'columns' => ['name', 'plate', 'capacity', 'riders', 'driver_name', 'driver_phone', 'route_name', 'active'],
+                    'column_labels' => ['plate' => 'Plate no.', 'riders' => 'Riders', 'driver_name' => 'Driver', 'driver_phone' => 'Driver phone', 'route_name' => 'Route'],
+                    'delete_guard' => ['bus_assignments', 'vehicle_id', 'Students ride this vehicle. Reassign them or mark it inactive instead.'],
+                    'query' => fn () => DB::table('transport_vehicles')->leftJoin('transport_routes', 'transport_routes.id', '=', 'transport_vehicles.route_id')
+                        ->select('transport_vehicles.*', 'transport_routes.name as route_name', DB::raw('(select count(*) from bus_assignments b where b.vehicle_id = transport_vehicles.id) as riders'))
+                        ->orderBy('transport_vehicles.name'),
+                    'fields' => [
+                        ['name' => 'name', 'label' => 'Vehicle name', 'type' => 'text', 'rules' => 'required|string|max:100'],
+                        ['name' => 'plate', 'label' => 'Plate no.', 'type' => 'text', 'rules' => 'nullable|string|max:30|unique:transport_vehicles,plate'],
+                        ['name' => 'capacity', 'label' => 'Capacity', 'type' => 'number', 'rules' => 'required|integer|min:1|max:200', 'default' => 40],
+                        ['name' => 'driver_name', 'label' => 'Driver', 'type' => 'text', 'rules' => 'nullable|string|max:100'],
+                        ['name' => 'driver_phone', 'label' => 'Driver phone', 'type' => 'text', 'rules' => 'nullable|string|max:30'],
+                        ['name' => 'route_id', 'label' => 'Route', 'type' => 'select', 'options_query' => ['transport_routes', 'id', 'name', 'No fixed route'], 'rules' => 'nullable|integer|exists:transport_routes,id'],
+                        ['name' => 'active', 'label' => 'Active', 'type' => 'checkbox', 'default' => true],
+                    ],
+                ],
+            ],
             'library' => [
                 'categories' => [
                     'label' => 'Book Categories',

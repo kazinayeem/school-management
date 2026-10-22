@@ -38,6 +38,53 @@ Route::middleware(['auth'])->group(function () {
         Route::put('online/{id}', 'reconcile')->whereNumber('id')->name('fees.online.reconcile');
     });
 
+    Route::controller(\App\Http\Controllers\StaffController::class)->prefix('app/staff')->group(function () {
+        Route::get('/', 'index')->name('staff.index');
+        Route::get('new', 'create')->name('staff.create');
+        Route::post('/', 'store')->name('staff.store');
+        Route::get('{id}', 'edit')->whereNumber('id')->name('staff.edit');
+        Route::put('{id}', 'update')->whereNumber('id')->name('staff.update');
+        Route::put('{id}/status', 'status')->whereNumber('id')->name('staff.status');
+    });
+
+    Route::controller(\App\Http\Controllers\AccountsController::class)->prefix('app/system')->group(function () {
+        Route::get('parents', 'parents')->name('accounts.parents');
+        Route::post('parents', 'storeParent')->name('accounts.parents.store');
+        Route::put('parents/{id}', 'updateParent')->whereNumber('id')->name('accounts.parents.update');
+        Route::get('users', 'users')->name('accounts.users');
+        Route::post('users', 'storeAdmin')->name('accounts.users.store');
+        Route::put('users/{id}/status', 'status')->whereNumber('id')->name('accounts.users.status');
+        Route::put('users/{id}/password', 'password')->whereNumber('id')->name('accounts.users.password');
+    });
+
+    Route::controller(\App\Http\Controllers\TransportController::class)->prefix('app/transport')->group(function () {
+        Route::get('/', 'riders')->name('transport.riders');
+        Route::post('riders', 'assign')->name('transport.assign');
+        Route::delete('riders/{userId}', 'unassign')->whereNumber('userId')->name('transport.unassign');
+        Route::get('manifest', 'manifest')->name('transport.manifest');
+        Route::get('routes', 'routes')->name('transport.routes');
+        Route::post('routes', 'storeRoute')->name('transport.routes.store');
+        Route::put('routes/{id}', 'updateRoute')->whereNumber('id')->name('transport.routes.update');
+        Route::delete('routes/{id}', 'destroyRoute')->whereNumber('id')->name('transport.routes.destroy');
+        Route::post('stops', 'storeStop')->name('transport.stops.store');
+        Route::put('stops/{id}', 'updateStop')->whereNumber('id')->name('transport.stops.update');
+        Route::delete('stops/{id}', 'destroyStop')->whereNumber('id')->name('transport.stops.destroy');
+    });
+
+    Route::controller(\App\Http\Controllers\ExamsController::class)->prefix('app/exams')->group(function () {
+        Route::get('/', 'setup')->name('exams.setup');
+        Route::post('/', 'storeExam')->name('exams.store');
+        Route::put('{id}', 'updateExam')->whereNumber('id')->name('exams.update');
+        Route::delete('{id}', 'destroyExam')->whereNumber('id')->name('exams.destroy');
+        Route::post('schedule', 'saveSchedule')->name('exams.schedule');
+        Route::get('admit-cards', 'admitCards')->name('exams.admit');
+        Route::get('marks', 'marks')->name('exams.marks');
+        Route::post('marks', 'saveMarks')->name('exams.marks.save');
+        Route::get('results', 'results')->name('exams.results');
+        Route::post('publish', 'publish')->name('exams.publish');
+        Route::post('unpublish', 'unpublish')->name('exams.unpublish');
+    });
+
     Route::controller(\App\Http\Controllers\TimetableController::class)->prefix('app/timetable')->group(function () {
         Route::get('/', 'routine')->name('timetable.routine');
         Route::post('/', 'saveRoutine')->name('timetable.routine.save');
@@ -119,13 +166,13 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::controller(\App\Http\Controllers\WebsiteController::class)->prefix('app/devices')->group(function () {
-        Route::get('/', 'index')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.index');
-        Route::post('/', 'store')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.store');
-        Route::put('{id}', 'update')->whereNumber('id')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.update');
-        Route::delete('{id}', 'destroy')->whereNumber('id')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.destroy');
+        Route::get('/', 'baseIndex')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.index');
+        Route::post('/', 'baseStore')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.store');
+        Route::put('{id}', 'baseUpdate')->whereNumber('id')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.update');
+        Route::delete('{id}', 'baseDestroy')->whereNumber('id')->defaults('group', 'devices')->defaults('resource', 'devices')->name('devices.destroy');
     });
 
-    foreach (['academic' => \App\Support\AcademicResources::slugs(), 'fees' => \App\Support\OperationsResources::slugs('fees'), 'accounting' => \App\Support\OperationsResources::slugs('accounting'), 'library' => \App\Support\OperationsResources::slugs('library'), 'devices' => \App\Support\OperationsResources::slugs('devices'), 'certificates' => \App\Support\OperationsResources::slugs('certificates'), 'leave' => \App\Support\OperationsResources::slugs('leave'), 'timetable' => \App\Support\OperationsResources::slugs('timetable'), 'payroll' => \App\Support\OperationsResources::slugs('payroll'), 'sms' => \App\Support\OperationsResources::slugs('sms'), 'settings' => \App\Support\OperationsResources::slugs('settings')] as $group => $slugs) {
+    foreach (['academic' => \App\Support\AcademicResources::slugs(), 'fees' => \App\Support\OperationsResources::slugs('fees'), 'accounting' => \App\Support\OperationsResources::slugs('accounting'), 'library' => \App\Support\OperationsResources::slugs('library'), 'devices' => \App\Support\OperationsResources::slugs('devices'), 'certificates' => \App\Support\OperationsResources::slugs('certificates'), 'leave' => \App\Support\OperationsResources::slugs('leave'), 'timetable' => \App\Support\OperationsResources::slugs('timetable'), 'payroll' => \App\Support\OperationsResources::slugs('payroll'), 'sms' => \App\Support\OperationsResources::slugs('sms'), 'settings' => \App\Support\OperationsResources::slugs('settings'), 'transport' => \App\Support\OperationsResources::slugs('transport')] as $group => $slugs) {
         Route::prefix("app/{$group}")->controller(\App\Http\Controllers\WebsiteController::class)->group(function () use ($group, $slugs) {
             Route::get('{resource}', 'index')->where('resource', $slugs)->defaults('group', $group)->name("{$group}.index");
             Route::post('{resource}', 'store')->where('resource', $slugs)->defaults('group', $group)->name("{$group}.store");
@@ -138,6 +185,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('import', 'importForm')->name('students.import');
         Route::get('import/template', 'importTemplate')->name('students.import.template');
         Route::post('import', 'import')->name('students.import.run');
+        Route::get('roll-numbers', 'rollNumbers')->name('students.rolls');
+        Route::post('roll-numbers', 'saveRollNumbers')->name('students.rolls.save');
+        Route::get('id-cards', 'idCards')->name('students.idcards');
         Route::get('promotion', 'promotionForm')->name('students.promotion');
         Route::post('promotion', 'promote')->name('students.promotion.run');
     });

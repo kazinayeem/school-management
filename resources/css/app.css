@@ -291,3 +291,27 @@ html[lang='ar'] body {
 .dark .themed .to-\[\#fbfbff\] {
     --tw-gradient-to: #0f172a;
 }
+
+@media print {
+    .admin-sidebar,
+    .admin-shell header,
+    .no-print {
+        display: none !important;
+    }
+
+    .admin-shell > div {
+        padding-inline-start: 0 !important;
+    }
+
+    .admin-shell,
+    .admin-shell main {
+        background: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+    }
+
+    .print-card {
+        break-inside: avoid;
+        border-color: #000 !important;
+    }
+}

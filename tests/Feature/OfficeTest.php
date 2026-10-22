@@ -49,7 +49,7 @@ class OfficeTest extends TestCase
             ->where('navigation.1.caption', 'Academic'));
 
         $this->get('/app/students')->assertOk();
-        $this->get('/app/payroll')->assertNotFound();
+        $this->get('/app/payroll')->assertForbidden();
     }
 
     public function test_staff_can_mark_attendance_publish_a_notice_and_open_a_student(): void

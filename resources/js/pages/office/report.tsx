@@ -17,6 +17,7 @@ export default function Report({
     values,
     sections,
     summary,
+    notes = [],
 }: {
     navigation: Nav;
     roleLabel: string;
@@ -26,6 +27,7 @@ export default function Report({
     values: Record<string, string>;
     sections: Section[];
     summary: { label: string; value: number }[];
+    notes?: string[];
 }) {
     const { t } = useI18n();
     const [state, setState] = useState<Record<string, string>>(values);
@@ -79,6 +81,14 @@ export default function Report({
                         </Card>
                     ))}
                 </div>
+            )}
+
+            {notes.length > 0 && (
+                <ul className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
+                    {notes.map((n) => (
+                        <li key={n}>{n}</li>
+                    ))}
+                </ul>
             )}
 
             {sections.map((section, idx) => (

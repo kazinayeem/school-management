@@ -17,6 +17,27 @@ use Inertia\Response;
 
 class WebsiteController extends Controller
 {
+    /** Routes without a {resource} segment (such as /app/devices) fix the resource in the route defaults. */
+    public function baseIndex(Request $request): Response
+    {
+        return $this->index($request, (string) $request->route('resource'));
+    }
+
+    public function baseStore(Request $request): RedirectResponse
+    {
+        return $this->store($request, (string) $request->route('resource'));
+    }
+
+    public function baseUpdate(Request $request, int $id): RedirectResponse
+    {
+        return $this->update($request, (string) $request->route('resource'), $id);
+    }
+
+    public function baseDestroy(Request $request, int $id): RedirectResponse
+    {
+        return $this->destroy($request, (string) $request->route('resource'), $id);
+    }
+
     public function index(Request $request, string $resource): Response
     {
         $readOnly = $request->user()->role !== 'admin';
@@ -117,6 +138,16 @@ class WebsiteController extends Controller
 
         DB::table($def['table'])->where('id', $id)->delete();
         Audit::log('deleted', $def['label'], "#{$id}");
+        if ($resource === 'vehicles') {
+            \App\Support\TransportSync::refresh();
+        }
+        if ($resource === 'grading') {
+            \App\Support\Grading::flush();
+        }
+
+        if ($resource === 'vehicles') {
+            \App\Support\TransportSync::refresh();
+        }
 
         return back()->with('status', 'Entry deleted.');
     }
@@ -219,6 +250,10 @@ class WebsiteController extends Controller
 
     private function afterSave(string $resource, int $id): void
     {
+        if ($resource === 'grading') {
+            \App\Support\Grading::flush();
+        }
+
         if ($resource === 'sessions' && DB::table('academic_sessions')->where('id', $id)->value('is_current')) {
             DB::table('academic_sessions')->where('id', '!=', $id)->update(['is_current' => false]);
         }

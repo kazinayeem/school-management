@@ -46,7 +46,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
-            'flash' => fn () => ['status' => $request->session()->get('status'), 'error' => $request->session()->get('error')],
+            'flash' => fn () => ['status' => $request->session()->get('status'), 'error' => $request->session()->get('error'), 'generated' => $request->session()->get('generated'), 'sms' => $request->session()->get('sms')],
             'enabledLanguages' => fn () => \App\Support\SiteSettings::enabledLanguages(),
             'menu' => fn () => \App\Support\RoleMenu::for($request->user()?->role),
         ]);

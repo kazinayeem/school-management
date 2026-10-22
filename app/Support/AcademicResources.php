@@ -83,7 +83,7 @@ class AcademicResources
                     ->select('teaching_assignments.*', 'users.name as teacher_name', 'academic_subjects.name as subject_name')
                     ->orderBy('users.name')->orderBy('teaching_assignments.class_name'),
                 'fields' => [
-                    ['name' => 'user_id', 'label' => 'Teacher', 'type' => 'select', 'options_query' => 'staff', 'rules' => 'required|integer|exists:users,id'],
+                    ['name' => 'user_id', 'label' => 'Teacher', 'type' => 'select', 'options_query' => 'teachers', 'rules' => 'required|integer|exists:users,id'],
                     ['name' => 'class_name', 'label' => 'Class', 'type' => 'select', 'options_query' => ['academic_classes', 'name', 'name'], 'rules' => 'required|string|exists:academic_classes,name'],
                     ['name' => 'section', 'label' => 'Section', 'type' => 'select', 'rules' => 'nullable|in:A,B', 'options' => [['value' => '', 'label' => 'All sections'], ['value' => 'A', 'label' => 'A'], ['value' => 'B', 'label' => 'B']]],
                     ['name' => 'subject_id', 'label' => 'Subject', 'type' => 'select', 'options_query' => ['academic_subjects', 'id', 'name'], 'rules' => 'required|integer|exists:academic_subjects,id'],

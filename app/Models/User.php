@@ -16,6 +16,9 @@ class User extends Authenticatable
 
     protected $attributes = ['role' => 'student', 'is_active' => true];
 
+    /** @var list<string> */
+    protected $appends = ['photo_url'];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -29,6 +32,7 @@ class User extends Authenticatable
         'role',
         'phone',
         'is_active',
+        'photo',
     ];
 
     public function profile(): HasOne
@@ -63,5 +67,16 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    protected function photoUrl(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::get(fn () => \App\Support\Photos::url($this->photo));
+    }
+
+    /** A teacher or an office staff member. */
+    public function isEmployee(): bool
+    {
+        return \App\Support\Permissions::isEmployee($this->role);
     }
 }

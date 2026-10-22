@@ -18,11 +18,13 @@ type Props = {
     days: string[];
     periods: Period[];
     cells: Record<string, Cell>;
+    rooms?: string[];
+    taken?: Record<string, { room: string; by: string }[]>;
 };
 
 function Grid({ props }: { props: Props }) {
     const { t } = useI18n();
-    const { readOnly, teacherMode, periods, days, subjects = [], teachers, filters } = props;
+    const { readOnly, teacherMode, periods, days, subjects = [], teachers, filters, rooms = [], taken = {} } = props;
     const [cells, setCells] = useState<Record<string, Cell>>(props.cells);
     const form = useForm<Record<string, any>>({
         class_name: filters.class ?? '',
@@ -115,13 +117,25 @@ function Grid({ props }: { props: Props }) {
                                                     <option key={s}>{s}</option>
                                                 ))}
                                             </select>
-                                            <input
+                                            <select
                                                 aria-label={t('Room')}
                                                 className={inputCls}
-                                                placeholder={t('Room')}
                                                 value={c.room ?? ''}
                                                 onChange={(e) => set(key, { room: e.target.value })}
-                                            />
+                                            >
+                                                <option value="">{t('No room')}</option>
+                                                {rooms.map((room) => {
+                                                    const holder = (taken[key] ?? []).find((x) => x.room === room);
+
+                                                    return (
+                                                        <option key={room} value={room} disabled={Boolean(holder)}>
+                                                            {holder
+                                                                ? `${room} — ${t('taken by {by}', { by: t(holder.by.replace(/ ([AB])$/, ' $1')) })}`
+                                                                : room}
+                                                        </option>
+                                                    );
+                                                })}
+                                            </select>
                                         </td>
                                     );
                                 })}

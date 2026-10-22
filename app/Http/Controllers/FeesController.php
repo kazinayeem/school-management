@@ -433,11 +433,11 @@ class FeesController extends Controller
 
     private function shared(): array
     {
-        return ['navigation' => OfficeMenu::for('admin'), 'roleLabel' => 'Super Admin'];
+        return ['navigation' => OfficeMenu::for(request()->user()->role), 'roleLabel' => 'Super Admin'];
     }
 
     private function admin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        \App\Support\Permissions::office($request);
     }
 }

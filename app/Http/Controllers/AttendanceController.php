@@ -16,9 +16,13 @@ class AttendanceController extends Controller
     public function register(Request $request): Response
     {
         $role = $request->user()->role;
-        abort_unless(in_array($role, ['admin', 'staff'], true) && OfficeMenu::allows($role, '/app/attendance/register'), 403);
+        \App\Support\Permissions::office($request);
+        abort_unless(OfficeMenu::allows($role, '/app/attendance/register'), 403);
 
         $classes = DB::table('academic_classes')->orderBy('sort_order')->pluck('name')->all();
+        if (\App\Support\TeacherScope::applies($request->user())) {
+            $classes = array_values(array_intersect($classes, \App\Support\TeacherScope::classes($request->user())));
+        }
         $class = in_array($request->query('class'), $classes, true) ? (string) $request->query('class') : ($classes[0] ?? 'Class 1');
         $section = in_array($request->query('section'), ['A', 'B'], true) ? (string) $request->query('section') : '';
         $from = $this->date($request->query('from'), today()->startOfMonth()->toDateString());
@@ -31,6 +35,7 @@ class AttendanceController extends Controller
         $students = DB::table('users')->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')
             ->where('student_profiles.status', 'active')->where('student_profiles.class_name', $class)
             ->when($section !== '', fn ($q) => $q->where('student_profiles.section', $section))
+            ->tap(fn ($q) => \App\Support\TeacherScope::restrict($q, $request->user()))
             ->orderBy('student_profiles.section')->orderByRaw('cast(student_profiles.roll_no as integer)')
             ->get(['users.id', 'users.name', 'student_profiles.roll_no', 'student_profiles.section']);
 
@@ -55,7 +60,7 @@ class AttendanceController extends Controller
 
         return Inertia::render('office/report', [
             'navigation' => OfficeMenu::for($role),
-            'roleLabel' => $role === 'admin' ? 'Super Admin' : 'Teacher',
+            'roleLabel' => \App\Support\Permissions::label($role),
             'title' => 'Register & Reports',
             'subtitle' => 'Attendance for a class over a period. Students under the minimum are flagged.',
             'filters' => [
@@ -124,7 +129,7 @@ class AttendanceController extends Controller
         $this->adminOnly($request);
         $date = $this->date($request->query('date'), today()->toDateString());
 
-        $staff = DB::table('users')->leftJoin('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')->where('users.role', 'staff')->where('users.is_active', true)
+        $staff = DB::table('users')->leftJoin('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')->whereIn('users.role', ['teacher', 'staff'])->where('users.is_active', true)
             ->orderBy('users.name')->get(['users.id', 'users.name', 'staff_profiles.employee_no', 'staff_profiles.designation']);
         $existing = DB::table('staff_attendance')->where('date', $date)->get()->keyBy('user_id');
         $onLeave = DB::table('leave_requests')->where('status', 'approved')->where('start_date', '<=', $date)->where('end_date', '>=', $date)->pluck('user_id')->flip();
@@ -147,7 +152,7 @@ class AttendanceController extends Controller
         })->values();
 
         return Inertia::render('office/staff-attendance', [
-            'navigation' => OfficeMenu::for('admin'),
+            'navigation' => OfficeMenu::for(request()->user()->role),
             'roleLabel' => 'Super Admin',
             'date' => $date,
             'rows' => $rows,
@@ -163,7 +168,7 @@ class AttendanceController extends Controller
         $data = $request->validate([
             'date' => ['required', 'date'],
             'marks' => ['required', 'array', 'min:1', 'max:500'],
-            'marks.*.user_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('users', 'id')->where('role', 'staff')],
+            'marks.*.user_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('users', 'id')->whereIn('role', ['teacher', 'staff'])],
             'marks.*.status' => ['required', 'in:present,absent,late,leave'],
             'marks.*.note' => ['nullable', 'string', 'max:150'],
         ]);
@@ -185,7 +190,7 @@ class AttendanceController extends Controller
         $data = $request->validate(['date' => ['required', 'date']]);
         $lateAfter = SiteSettings::get('attendance_late_after', '08:15');
 
-        $first = DB::table('punches')->join('users', 'users.id', '=', 'punches.user_id')->where('users.role', 'staff')
+        $first = DB::table('punches')->join('users', 'users.id', '=', 'punches.user_id')->whereIn('users.role', ['teacher', 'staff'])
             ->where('punches.direction', 'in')->whereDate('punches.punched_at', $data['date'])
             ->selectRaw('punches.user_id, min(punches.punched_at) as first_in')->groupBy('punches.user_id')->get();
         $existing = DB::table('staff_attendance')->where('date', $data['date'])->pluck('user_id')->flip();

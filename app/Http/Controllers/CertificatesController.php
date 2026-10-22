@@ -19,7 +19,7 @@ class CertificatesController extends Controller
 
         return Inertia::render('office/issue-certificate', [
             ...$this->shared(),
-            'templates' => DB::table('certificate_templates')->where('active', true)->orderBy('name')->get(['id', 'name', 'body']),
+            'templates' => DB::table('certificate_templates')->where('active', true)->orderBy('name')->get(['id', 'name', 'body', 'style', 'show_photo']),
             'recent' => $this->listQuery()->limit(8)->get(),
         ]);
     }
@@ -48,6 +48,7 @@ class CertificatesController extends Controller
         $body = strtr($template->body, [
             '{student_name}' => $student->name, '{guardian}' => $student->guardian_name ?: '—', '{class}' => trim($student->class_name.' '.$student->section),
             '{roll}' => (string) $student->roll_no, '{admission_no}' => (string) $student->admission_no, '{date}' => date('j F Y', strtotime($data['date'])),
+            '{school_name}' => (string) (SiteSettings::get('school_name') ?: config('app.name')),
         ]);
 
         $id = DB::transaction(function () use ($request, $data, $student, $template, $body) {
@@ -58,7 +59,7 @@ class CertificatesController extends Controller
             } while (DB::table('certificates')->where('number', $number)->exists());
 
             return DB::table('certificates')->insertGetId([
-                'number' => $number, 'template_id' => $template->id, 'user_id' => $student->id, 'title' => $template->name, 'body' => $body,
+                'number' => $number, 'template_id' => $template->id, 'user_id' => $student->id, 'title' => $template->name, 'body' => $body, 'style' => $template->style, 'show_photo' => $template->show_photo,
                 'issued_on' => $data['date'], 'issued_by' => $request->user()->id, 'created_at' => now(), 'updated_at' => now(),
             ]);
         });
@@ -82,8 +83,10 @@ class CertificatesController extends Controller
     public function print(Request $request, int $id): Response
     {
         $this->admin($request);
-        $certificate = DB::table('certificates')->join('users', 'users.id', '=', 'certificates.user_id')->where('certificates.id', $id)->first(['certificates.*', 'users.name']);
+        $certificate = DB::table('certificates')->join('users', 'users.id', '=', 'certificates.user_id')->leftJoin('student_profiles', 'student_profiles.user_id', '=', 'users.id')->where('certificates.id', $id)
+            ->first(['certificates.*', 'users.name', 'users.photo', 'student_profiles.class_name', 'student_profiles.section', 'student_profiles.admission_no']);
         abort_if($certificate === null, 404);
+        $certificate->photo_url = \App\Support\Photos::url($certificate->photo);
 
         return Inertia::render('office/certificate-print', [
             'certificate' => $certificate,
@@ -99,11 +102,11 @@ class CertificatesController extends Controller
 
     private function shared(): array
     {
-        return ['navigation' => OfficeMenu::for('admin'), 'roleLabel' => 'Super Admin'];
+        return ['navigation' => OfficeMenu::for(request()->user()->role), 'roleLabel' => 'Super Admin'];
     }
 
     private function admin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        \App\Support\Permissions::office($request);
     }
 }

@@ -23,7 +23,7 @@ class OperationsTest extends TestCase
 
     private function staff(string $name = 'Teacher One'): User
     {
-        return User::factory()->create(['role' => 'staff', 'name' => $name, 'phone' => '01712345678']);
+        return User::factory()->create(['role' => 'teacher', 'name' => $name, 'phone' => '01712345678']);
     }
 
     private function student(): User

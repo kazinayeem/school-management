@@ -1,7 +1,8 @@
 import { Card, Field, inputCls, Nav, OfficePage, primaryBtn, Table } from '@/components/office-ui';
+import { PickedStudent, StudentSelect } from '@/components/student-picker';
 import { useI18n } from '@/lib/i18n';
 import { useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 
 type Recent = { id: number; number: string; title: string; issued_on: string; name: string };
 
@@ -13,10 +14,11 @@ export default function IssueCertificate({
 }: {
     navigation: Nav;
     roleLabel: string;
-    templates: { id: number; name: string; body: string }[];
+    templates: { id: number; name: string; body: string; style: string; show_photo: number }[];
     recent: Recent[];
 }) {
     const { t } = useI18n();
+    const [picked, setPicked] = useState<PickedStudent | null>(null);
     const form = useForm({ template_id: templates[0] ? String(templates[0].id) : '', student: '', date: new Date().toISOString().slice(0, 10) });
     const template = templates.find((x) => String(x.id) === form.data.template_id);
 
@@ -51,9 +53,15 @@ export default function IssueCertificate({
                                     ))}
                                 </select>
                             </Field>
-                            <Field label="Admission no. or username" error={form.errors.student}>
-                                <input className={inputCls} value={form.data.student} onChange={(e) => form.setData('student', e.target.value)} />
-                            </Field>
+                            <StudentSelect
+                                label="Student"
+                                value={picked}
+                                error={form.errors.student}
+                                onChange={(s) => {
+                                    setPicked(s);
+                                    form.setData('student', s?.admission_no ?? '');
+                                }}
+                            />
                             <Field label="Issue date" error={form.errors.date}>
                                 <input
                                     type="date"
@@ -63,6 +71,12 @@ export default function IssueCertificate({
                                 />
                             </Field>
                         </div>
+                    )}
+                    {template && (
+                        <p className="text-xs text-slate-500">
+                            {t('Design')}: <b>{t(template.style === 'modern' ? 'Modern' : template.style === 'elegant' ? 'Elegant' : 'Classic')}</b>
+                            {template.show_photo ? ` · ${t("with the student's photo")}` : ''}
+                        </p>
                     )}
                     {template && <pre className="rounded-lg bg-slate-50 p-3 text-xs whitespace-pre-wrap text-slate-600">{template.body}</pre>}
                     <button disabled={form.processing || templates.length === 0} className={primaryBtn}>

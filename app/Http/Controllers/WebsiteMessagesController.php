@@ -27,7 +27,7 @@ class WebsiteMessagesController extends Controller
             ->orderByRaw("case status when 'new' then 0 else 1 end")->orderByDesc('id')->limit(300)->get();
 
         return Inertia::render('office/website-messages', [
-            'navigation' => OfficeMenu::for('admin'),
+            'navigation' => OfficeMenu::for(request()->user()->role),
             'roleLabel' => 'Super Admin',
             'rows' => $rows,
             'counts' => DB::table('contact_messages')->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
@@ -55,6 +55,6 @@ class WebsiteMessagesController extends Controller
 
     private function admin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        \App\Support\Permissions::office($request);
     }
 }

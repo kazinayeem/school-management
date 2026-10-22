@@ -13,14 +13,14 @@ class OfficeController extends Controller
     public function show(Request $request, ?string $page = null): Response
     {
         $user = $request->user();
-        abort_unless(in_array($user->role, ['admin', 'staff'], true), 403);
+        \App\Support\Permissions::office($request);
 
         $path = '/app'.($page ? '/'.$page : '');
         abort_unless(OfficeMenu::allows($user->role, $path), 404);
 
         $shared = [
             'navigation' => OfficeMenu::for($user->role),
-            'roleLabel' => $user->role === 'admin' ? 'Super Admin' : 'Teacher',
+            'roleLabel' => \App\Support\Permissions::label($user->role),
         ];
 
         if ($page === null) {

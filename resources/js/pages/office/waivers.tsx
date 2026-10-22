@@ -1,8 +1,9 @@
 import { Badge, Card, Field, inputCls, Nav, OfficePage, primaryBtn, Table } from '@/components/office-ui';
+import { PickedStudent, StudentSelect } from '@/components/student-picker';
 import { useI18n } from '@/lib/i18n';
 import { router, useForm } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 
 type Row = {
     id: number;
@@ -17,11 +18,18 @@ type Row = {
 
 export default function Waivers({ navigation, roleLabel, rows }: { navigation: Nav; roleLabel: string; rows: Row[] }) {
     const { t } = useI18n();
+    const [picked, setPicked] = useState<PickedStudent | null>(null);
     const form = useForm({ student: '', kind: 'percent', value: '', reason: '' });
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        form.post('/app/fees/waivers', { preserveScroll: true, onSuccess: () => form.reset() });
+        form.post('/app/fees/waivers', {
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset();
+                setPicked(null);
+            },
+        });
     };
 
     return (
@@ -34,9 +42,15 @@ export default function Waivers({ navigation, roleLabel, rows }: { navigation: N
             <form onSubmit={submit}>
                 <Card className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-4">
-                        <Field label="Admission no. or username" error={form.errors.student}>
-                            <input className={inputCls} value={form.data.student} onChange={(e) => form.setData('student', e.target.value)} />
-                        </Field>
+                        <StudentSelect
+                            label="Student"
+                            value={picked}
+                            error={form.errors.student}
+                            onChange={(s) => {
+                                setPicked(s);
+                                form.setData('student', s?.admission_no ?? '');
+                            }}
+                        />
                         <Field label="Type" error={form.errors.kind}>
                             <select className={inputCls} value={form.data.kind} onChange={(e) => form.setData('kind', e.target.value)}>
                                 <option value="percent">{t('Percent')}</option>

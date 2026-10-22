@@ -20,18 +20,25 @@ class StaffController extends Controller
         $this->admin($request);
         $search = trim((string) $request->query('search', ''));
         $status = (string) $request->query('status', '');
+        $type = in_array($request->query('type'), ['teacher', 'staff'], true) ? (string) $request->query('type') : '';
 
-        $rows = DB::table('users')->leftJoin('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')->where('users.role', 'staff')
+        $rows = DB::table('users')->leftJoin('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')->whereIn('users.role', ['teacher', 'staff'])
+            ->when($type !== '', fn ($q) => $q->where('users.role', $type))
             ->when($status === 'active', fn ($q) => $q->where('users.is_active', true))->when($status === 'inactive', fn ($q) => $q->where('users.is_active', false))
             ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('users.name', 'like', "%{$search}%")->orWhere('users.username', 'like', "%{$search}%")->orWhere('staff_profiles.employee_no', 'like', "%{$search}%")->orWhere('staff_profiles.designation', 'like', "%{$search}%")))
             ->orderBy('users.name')->limit(500)
-            ->get(['users.id', 'users.name', 'users.username', 'users.email', 'users.phone', 'users.is_active', 'staff_profiles.employee_no', 'staff_profiles.designation', 'staff_profiles.department']);
+            ->get(['users.id', 'users.name', 'users.username', 'users.email', 'users.phone', 'users.is_active', 'users.role', 'users.photo', 'staff_profiles.employee_no', 'staff_profiles.designation', 'staff_profiles.department'])
+            ->map(function ($r) {
+                $r->photo_url = \App\Support\Photos::url($r->photo);
+
+                return $r;
+            });
 
         return Inertia::render('office/staff-list', [
             ...$this->shared(),
             'rows' => $rows,
-            'counts' => ['active' => User::where('role', 'staff')->where('is_active', true)->count(), 'inactive' => User::where('role', 'staff')->where('is_active', false)->count()],
-            'filters' => ['search' => $search, 'status' => $status],
+            'counts' => ['active' => User::whereIn('role', ['teacher', 'staff'])->where('is_active', true)->count(), 'inactive' => User::whereIn('role', ['teacher', 'staff'])->where('is_active', false)->count(), 'teachers' => User::where('role', 'teacher')->count(), 'staff' => User::where('role', 'staff')->count()],
+            'filters' => ['search' => $search, 'status' => $status, 'type' => $type],
             'me' => $request->user()->id,
         ]);
     }
@@ -46,9 +53,10 @@ class StaffController extends Controller
     public function edit(Request $request, int $id): Response
     {
         $this->admin($request);
-        $staff = DB::table('users')->leftJoin('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')->where('users.id', $id)->where('users.role', 'staff')
-            ->first(['users.id', 'users.name', 'users.username', 'users.email', 'users.phone', 'users.is_active', 'staff_profiles.employee_no', 'staff_profiles.designation', 'staff_profiles.department', 'staff_profiles.joined_on', 'staff_profiles.address']);
+        $staff = DB::table('users')->leftJoin('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')->where('users.id', $id)->whereIn('users.role', ['teacher', 'staff'])
+            ->first(['users.id', 'users.name', 'users.username', 'users.email', 'users.phone', 'users.is_active', 'users.role', 'users.photo', 'staff_profiles.employee_no', 'staff_profiles.designation', 'staff_profiles.department', 'staff_profiles.joined_on', 'staff_profiles.address']);
         abort_if($staff === null, 404);
+        $staff->photo_url = \App\Support\Photos::url($staff->photo);
 
         return Inertia::render('office/staff-form', [...$this->shared(), 'staff' => $staff]);
     }
@@ -62,7 +70,7 @@ class StaffController extends Controller
             $username = $data['username'] ?: AccountsController::uniqueUsername($data['name']);
             $user = User::create([
                 'name' => $data['name'], 'username' => $username, 'email' => $data['email'] ?: "{$username}@borno.test", 'phone' => $data['phone'] ?? null,
-                'role' => 'staff', 'password' => $data['password'], 'is_active' => $data['is_active'],
+                'role' => $data['role'], 'password' => $data['password'], 'is_active' => $data['is_active'],
             ]);
             DB::table('staff_profiles')->insert([
                 'user_id' => $user->id, 'employee_no' => $this->nextEmployeeNo(), 'designation' => $data['designation'] ?? null, 'department' => $data['department'] ?? null,
@@ -79,7 +87,7 @@ class StaffController extends Controller
     public function update(Request $request, int $id): RedirectResponse
     {
         $this->admin($request);
-        $user = User::where('role', 'staff')->findOrFail($id);
+        $user = User::whereIn('role', ['teacher', 'staff'])->findOrFail($id);
         $data = $this->validated($request, $id);
 
         if ($id === $request->user()->id && ! $data['is_active']) {
@@ -87,7 +95,7 @@ class StaffController extends Controller
         }
 
         DB::transaction(function () use ($user, $data, $id) {
-            $user->fill(['name' => $data['name'], 'phone' => $data['phone'] ?? null, 'is_active' => $data['is_active']]);
+            $user->fill(['name' => $data['name'], 'phone' => $data['phone'] ?? null, 'is_active' => $data['is_active'], 'role' => $data['role']]);
             if (filled($data['username'])) {
                 $user->username = $data['username'];
             }
@@ -114,7 +122,7 @@ class StaffController extends Controller
     public function status(Request $request, int $id): RedirectResponse
     {
         $this->admin($request);
-        $user = User::where('role', 'staff')->findOrFail($id);
+        $user = User::whereIn('role', ['teacher', 'staff'])->findOrFail($id);
         if ($user->id === $request->user()->id) {
             return back()->with('error', 'You cannot deactivate your own account.');
         }
@@ -128,6 +136,7 @@ class StaffController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
+            'role' => ['required', Rule::in(['teacher', 'staff'])],
             'username' => ['nullable', 'string', 'max:50', 'alpha_dash', Rule::unique('users', 'username')->ignore($id)],
             'email' => ['nullable', 'email', 'max:150', Rule::unique('users', 'email')->ignore($id)],
             'phone' => ['nullable', 'string', 'max:30'],
@@ -158,11 +167,11 @@ class StaffController extends Controller
 
     private function shared(): array
     {
-        return ['navigation' => OfficeMenu::for('admin'), 'roleLabel' => 'Super Admin'];
+        return ['navigation' => OfficeMenu::for(request()->user()->role), 'roleLabel' => 'Super Admin'];
     }
 
     private function admin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        \App\Support\Permissions::office($request);
     }
 }

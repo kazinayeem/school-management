@@ -1,3 +1,4 @@
+import { Avatar } from '@/components/avatar';
 import { Badge, inputCls, Nav, OfficePage, primaryBtn, Table } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
 import { Link, router } from '@inertiajs/react';
@@ -14,6 +15,8 @@ type Row = {
     employee_no: string | null;
     designation: string | null;
     department: string | null;
+    role: string;
+    photo_url: string | null;
 };
 
 export default function StaffList({
@@ -27,8 +30,8 @@ export default function StaffList({
     navigation: Nav;
     roleLabel: string;
     rows: Row[];
-    counts: { active: number; inactive: number };
-    filters: { search: string; status: string };
+    counts: { active: number; inactive: number; teachers: number; staff: number };
+    filters: { search: string; status: string; type: string };
     me: number;
 }) {
     const { t } = useI18n();
@@ -57,8 +60,18 @@ export default function StaffList({
                         placeholder={t('Search name, username, number or role')}
                     />
                 </form>
+                <select
+                    className={`${inputCls} w-44`}
+                    value={filters.type}
+                    onChange={(e) => go({ type: e.target.value })}
+                    aria-label={t('Account type')}
+                >
+                    <option value="">{t('Teachers and staff')}</option>
+                    <option value="teacher">{t('Teachers')}</option>
+                    <option value="staff">{t('Office staff')}</option>
+                </select>
                 <select className={`${inputCls} w-44`} value={filters.status} onChange={(e) => go({ status: e.target.value })}>
-                    <option value="">{t('All staff')}</option>
+                    <option value="">{t('All statuses')}</option>
                     <option value="active">{t('Active')}</option>
                     <option value="inactive">{t('Inactive')}</option>
                 </select>
@@ -75,8 +88,16 @@ export default function StaffList({
                 {rows.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-mono text-xs">{r.employee_no}</td>
-                        <td className="px-4 py-3 font-medium">{r.name}</td>
-                        <td className="px-4 py-3">{r.designation}</td>
+                        <td className="px-4 py-3 font-medium">
+                            <span className="flex items-center gap-2">
+                                <Avatar name={r.name} src={r.photo_url} className="h-8 w-8 text-xs" />
+                                {r.name}
+                            </span>
+                        </td>
+                        <td className="px-4 py-3">
+                            {r.designation}{' '}
+                            <Badge tone={r.role === 'teacher' ? 'green' : 'slate'}>{t(r.role === 'teacher' ? 'Teacher' : 'Staff')}</Badge>
+                        </td>
                         <td className="px-4 py-3">{r.department}</td>
                         <td className="px-4 py-3" dir="ltr">
                             {r.phone}

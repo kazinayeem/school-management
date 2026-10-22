@@ -113,23 +113,52 @@ class StudentToolsController extends Controller
     public function promotionForm(Request $request): Response
     {
         $this->admin($request);
-        $class = (string) $request->query('class', 'Class 1');
-        $section = (string) $request->query('section', '');
+        $class = in_array($request->query('class'), $this->classes(), true) ? (string) $request->query('class') : 'Class 1';
+        $section = in_array($request->query('section'), ['A', 'B'], true) ? (string) $request->query('section') : '';
+        $q = trim((string) $request->query('q', ''));
+        $gender = in_array($request->query('gender'), ['Male', 'Female'], true) ? (string) $request->query('gender') : '';
+        $result = in_array($request->query('result'), ['passed', 'failed', 'none'], true) ? (string) $request->query('result') : '';
+        $dues = in_array($request->query('dues'), ['clear', 'owing'], true) ? (string) $request->query('dues') : '';
+        $minimum = (int) \App\Support\SiteSettings::int('attendance_min_percent', 75);
+        $attendance = in_array($request->query('attendance'), ['low', 'ok'], true) ? (string) $request->query('attendance') : '';
 
-        $students = DB::table('student_profiles')
-            ->join('users', 'users.id', '=', 'student_profiles.user_id')
-            ->where('student_profiles.status', 'active')
-            ->where('student_profiles.class_name', $class)
-            ->when($section !== '', fn ($q) => $q->where('student_profiles.section', $section))
-            ->orderBy('student_profiles.section')
-            ->orderByRaw('cast(student_profiles.roll_no as integer)')
-            ->get(['student_profiles.user_id as id', 'users.name', 'student_profiles.section', 'student_profiles.roll_no', 'student_profiles.admission_no']);
+        $base = fn () => DB::table('student_profiles')->join('users', 'users.id', '=', 'student_profiles.user_id')
+            ->where('student_profiles.status', 'active')->where('student_profiles.class_name', $class);
+
+        $rows = $base()
+            ->when($section !== '', fn ($query) => $query->where('student_profiles.section', $section))
+            ->when($gender !== '', fn ($query) => $query->where('student_profiles.gender', $gender))
+            ->when($q !== '', fn ($query) => $query->where(fn ($query) => $query->where('users.name', 'like', "%{$q}%")->orWhere('student_profiles.admission_no', 'like', "%{$q}%")->orWhere('student_profiles.roll_no', $q)))
+            ->when($result === 'passed', fn ($query) => $query->whereNotNull('student_profiles.exam_name')->where('student_profiles.gpa', '>', 0))
+            ->when($result === 'failed', fn ($query) => $query->whereNotNull('student_profiles.exam_name')->where(fn ($query) => $query->whereNull('student_profiles.gpa')->orWhere('student_profiles.gpa', '<=', 0)))
+            ->when($result === 'none', fn ($query) => $query->whereNull('student_profiles.exam_name'))
+            ->when($dues === 'clear', fn ($query) => $query->where('student_profiles.dues_total', '<=', 0))
+            ->when($dues === 'owing', fn ($query) => $query->where('student_profiles.dues_total', '>', 0))
+            ->orderBy('student_profiles.section')->orderByRaw('cast(student_profiles.roll_no as integer)')->limit(400)
+            ->get(['users.id', 'users.name', 'users.photo', 'student_profiles.section', 'student_profiles.roll_no', 'student_profiles.admission_no', 'student_profiles.gender', 'student_profiles.gpa', 'student_profiles.exam_name', 'student_profiles.dues_total']);
+
+        $days = DB::table('attendance_days')->whereIn('user_id', $rows->pluck('id'))->selectRaw('user_id, status, count(*) as total')->groupBy('user_id', 'status')->get()->groupBy('user_id');
+
+        $students = $rows->map(function ($r) use ($days) {
+            $c = ($days[$r->id] ?? collect())->pluck('total', 'status');
+            $counted = (int) ($c['present'] ?? 0) + (int) ($c['late'] ?? 0) + (int) ($c['absent'] ?? 0);
+
+            return [
+                'id' => $r->id, 'name' => $r->name, 'photo' => \App\Support\Photos::url($r->photo), 'section' => $r->section, 'roll_no' => $r->roll_no, 'admission_no' => $r->admission_no,
+                'gender' => $r->gender, 'gpa' => $r->exam_name ? (float) $r->gpa : null, 'exam' => $r->exam_name, 'dues' => (int) $r->dues_total,
+                'attendance' => $counted > 0 ? (int) round(((int) ($c['present'] ?? 0) + (int) ($c['late'] ?? 0)) / $counted * 100) : null,
+            ];
+        })->when($attendance !== '', fn ($c) => $c->filter(fn ($s) => $s['attendance'] !== null && ($attendance === 'low' ? $s['attendance'] < $minimum : $s['attendance'] >= $minimum)))->values();
+
+        $everyone = $base()->count();
 
         return Inertia::render('office/promotion', [
             ...$this->shared(),
             'classes' => $this->classes(),
-            'filters' => ['class' => $class, 'section' => $section],
+            'filters' => ['class' => $class, 'section' => $section, 'q' => $q, 'gender' => $gender, 'result' => $result, 'dues' => $dues, 'attendance' => $attendance],
             'students' => $students,
+            'total' => $everyone,
+            'minimum' => $minimum,
             'result' => $request->session()->get('promotion'),
         ]);
     }
@@ -231,7 +260,12 @@ class StudentToolsController extends Controller
             ->when($section !== '', fn ($q) => $q->where('student_profiles.section', $section))
             ->when($roll !== '', fn ($q) => $q->where('student_profiles.roll_no', $roll))
             ->orderBy('student_profiles.section')->orderByRaw('cast(student_profiles.roll_no as integer)')->limit(300)
-            ->get(['users.id', 'users.name', 'student_profiles.admission_no', 'student_profiles.roll_no', 'student_profiles.section', 'student_profiles.session', 'student_profiles.guardian_mobile', 'student_profiles.gender']);
+            ->get(['users.id', 'users.name', 'users.photo', 'student_profiles.admission_no', 'student_profiles.roll_no', 'student_profiles.section', 'student_profiles.session', 'student_profiles.guardian_name', 'student_profiles.guardian_mobile', 'student_profiles.gender', 'student_profiles.date_of_birth', 'student_profiles.address'])
+            ->map(function ($s) {
+                $s->photo_url = \App\Support\Photos::url($s->photo);
+
+                return $s;
+            });
 
         return Inertia::render('office/id-cards', [
             ...$this->shared(),
@@ -269,11 +303,11 @@ class StudentToolsController extends Controller
 
     private function shared(): array
     {
-        return ['navigation' => OfficeMenu::for('admin'), 'roleLabel' => 'Super Admin'];
+        return ['navigation' => OfficeMenu::for(request()->user()->role), 'roleLabel' => 'Super Admin'];
     }
 
     private function admin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        \App\Support\Permissions::office($request);
     }
 }

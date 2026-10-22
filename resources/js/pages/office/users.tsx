@@ -105,7 +105,8 @@ export default function Users({
     const [resetting, setResetting] = useState<Row | null>(null);
     const [adding, setAdding] = useState(false);
     const go = (next: Record<string, string>) => router.get('/app/system/users', { ...filters, ...next }, { preserveState: true, replace: true });
-    const roleName = (r: string) => t(r === 'admin' ? 'Admin' : r === 'staff' ? 'Staff' : r === 'student' ? 'Student' : 'Parent');
+    const roleName = (r: string) =>
+        t(r === 'admin' ? 'Admin' : r === 'teacher' ? 'Teacher' : r === 'staff' ? 'Staff' : r === 'student' ? 'Student' : 'Parent');
 
     return (
         <OfficePage
@@ -115,8 +116,8 @@ export default function Users({
             subtitle="Everyone who can sign in. Turn accounts off, reset passwords, add administrators."
             wide
         >
-            <div className="grid gap-3 sm:grid-cols-4">
-                {(['admin', 'staff', 'student', 'parent'] as const).map((r) => (
+            <div className="grid gap-3 sm:grid-cols-5">
+                {(['admin', 'teacher', 'staff', 'student', 'parent'] as const).map((r) => (
                     <button
                         key={r}
                         onClick={() => go({ role: filters.role === r ? '' : r })}

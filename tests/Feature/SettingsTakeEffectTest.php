@@ -192,7 +192,7 @@ class SettingsTakeEffectTest extends TestCase
         $early = $this->student('Early');
         $late = $this->student('Late');
         $manual = $this->student('Manual');
-        $teacher = User::factory()->create(['role' => 'staff']);
+        $teacher = User::factory()->create(['role' => 'teacher']);
         $punch = fn (User $u, string $time, string $dir = 'in') => DB::table('punches')->insert(['user_id' => $u->id, 'punched_at' => "2026-10-20 {$time}:00", 'direction' => $dir, 'created_at' => now(), 'updated_at' => now()]);
 
         $punch($early, '08:15');
@@ -220,7 +220,7 @@ class SettingsTakeEffectTest extends TestCase
 
     public function test_punch_marking_is_admin_only(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'staff']));
+        $this->actingAs(User::factory()->create(['role' => 'teacher']));
         $this->post('/app/attendance/punches', ['date' => '2026-10-20'])->assertForbidden();
         $this->get('/app/attendance/register')->assertOk();
     }
@@ -362,7 +362,7 @@ class SettingsTakeEffectTest extends TestCase
 
     public function test_gateway_helpers_are_admin_only(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'staff']));
+        $this->actingAs(User::factory()->create(['role' => 'teacher']));
         $this->post('/app/sms/log/deliver')->assertForbidden();
         $this->post('/app/settings/mail/test', ['email' => 'a@b.co'])->assertForbidden();
     }

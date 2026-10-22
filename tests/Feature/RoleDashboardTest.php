@@ -23,7 +23,7 @@ class RoleDashboardTest extends TestCase
     {
         return [
             'admin' => ['superadmin', 'admin'],
-            'staff' => ['jsmith', 'staff'],
+            'teacher' => ['jsmith', 'teacher'],
         ];
     }
 

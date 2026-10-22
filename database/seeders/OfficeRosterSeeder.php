@@ -20,7 +20,7 @@ class OfficeRosterSeeder extends Seeder
         }
 
         User::where('username', 'like', 'mate-%')->orWhere('username', 'like', 'roster-%')->delete();
-        User::where('role', 'staff')->where('username', '!=', 'jsmith')->delete();
+        User::where('role', 'teacher')->where('username', '!=', 'jsmith')->delete();
 
         $ethan->profile?->update([
             'admission_no' => '2026-00001',
@@ -235,7 +235,7 @@ class OfficeRosterSeeder extends Seeder
                 'name' => $name,
                 'username' => $username,
                 'email' => $username.'@borno.test',
-                'role' => 'staff',
+                'role' => 'teacher',
                 'password' => $hash,
                 'created_at' => $now,
                 'updated_at' => $now,

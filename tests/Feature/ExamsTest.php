@@ -199,7 +199,7 @@ class ExamsTest extends TestCase
         $this->admin();
         $id = $this->exam();
         $s = $this->student('Kid');
-        $teacher = User::factory()->create(['role' => 'staff']);
+        $teacher = User::factory()->create(['role' => 'teacher']);
         DB::table('teaching_assignments')->insert(['user_id' => $teacher->id, 'class_name' => 'Class 6', 'section' => null, 'subject_id' => $this->subject('BAN'), 'created_at' => now(), 'updated_at' => now()]);
 
         $this->actingAs($teacher);

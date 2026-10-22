@@ -45,7 +45,7 @@ class SmsController extends Controller
                 ->when($data['section'] ?? null, fn ($q, $s) => $q->where('student_profiles.section', $s))
                 ->get(['users.name as student', 'student_profiles.guardian_name as guardian', 'student_profiles.guardian_mobile as phone', 'student_profiles.class_name', 'student_profiles.section'])
                 ->map(fn ($r) => ['phone' => $r->phone, 'name' => $r->guardian ?: $r->student, 'vars' => ['{guardian}' => $r->guardian ?: 'Guardian', '{student}' => $r->student, '{class}' => trim($r->class_name.' '.$r->section)]]),
-            'staff' => DB::table('users')->where('role', 'staff')->get(['name', 'phone'])->map(fn ($r) => ['phone' => $r->phone, 'name' => $r->name, 'vars' => ['{guardian}' => $r->name, '{student}' => '', '{class}' => '']]),
+            'staff' => DB::table('users')->whereIn('role', ['teacher', 'staff'])->where('is_active', true)->get(['name', 'phone'])->map(fn ($r) => ['phone' => $r->phone, 'name' => $r->name, 'vars' => ['{guardian}' => $r->name, '{student}' => '', '{class}' => '']]),
             'number' => collect([['phone' => $data['number'], 'name' => null, 'vars' => ['{guardian}' => '', '{student}' => '', '{class}' => '']]]),
         };
 
@@ -111,11 +111,11 @@ class SmsController extends Controller
 
     private function shared(): array
     {
-        return ['navigation' => OfficeMenu::for('admin'), 'roleLabel' => 'Super Admin'];
+        return ['navigation' => OfficeMenu::for(request()->user()->role), 'roleLabel' => 'Super Admin'];
     }
 
     private function admin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        \App\Support\Permissions::office($request);
     }
 }

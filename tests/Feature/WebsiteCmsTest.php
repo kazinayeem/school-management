@@ -32,7 +32,7 @@ class WebsiteCmsTest extends TestCase
     {
         $this->get('/app/website/faqs')->assertRedirect('/login');
 
-        $this->actingAs(User::factory()->create(['role' => 'staff']))
+        $this->actingAs(User::factory()->create(['role' => 'teacher']))
             ->get('/app/website/faqs')->assertForbidden();
     }
 

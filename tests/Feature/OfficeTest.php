@@ -38,7 +38,7 @@ class OfficeTest extends TestCase
         $this->post('/login', [
             'login' => 'jsmith',
             'password' => 'Demo@1234',
-            'role' => 'staff',
+            'role' => 'teacher',
         ])->assertRedirect('/app');
 
         $this->get('/app')->assertInertia(fn (Assert $page) => $page

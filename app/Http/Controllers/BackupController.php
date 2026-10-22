@@ -20,7 +20,7 @@ class BackupController extends Controller
         $this->admin($request);
 
         return Inertia::render('office/backup', [
-            'navigation' => OfficeMenu::for('admin'),
+            'navigation' => OfficeMenu::for(request()->user()->role),
             'roleLabel' => 'Super Admin',
             'supported' => $backups->supported(),
             'backups' => $backups->all(),

@@ -51,6 +51,8 @@ Route::middleware(['auth'])->group(function () {
         Route::put('{id}/status', 'status')->whereNumber('id')->name('staff.status');
     });
 
+    Route::get('app/lookup/students', [\App\Http\Controllers\AccountsController::class, 'studentSearch'])->name('lookup.students');
+
     Route::controller(\App\Http\Controllers\AccountsController::class)->prefix('app/system')->group(function () {
         Route::get('parents', 'parents')->name('accounts.parents');
         Route::post('parents', 'storeParent')->name('accounts.parents.store');
@@ -74,6 +76,12 @@ Route::middleware(['auth'])->group(function () {
         Route::put('stops/{id}', 'updateStop')->whereNumber('id')->name('transport.stops.update');
         Route::delete('stops/{id}', 'destroyStop')->whereNumber('id')->name('transport.stops.destroy');
     });
+
+    Route::post('photos/{user}', [\App\Http\Controllers\PhotoController::class, 'store'])->whereNumber('user')->name('photos.store');
+    Route::delete('photos/{user}', [\App\Http\Controllers\PhotoController::class, 'destroy'])->whereNumber('user')->name('photos.destroy');
+
+    Route::get('app/attendance', [\App\Http\Controllers\TakeAttendanceController::class, 'index'])->name('attendance.take');
+    Route::post('app/attendance/take', [\App\Http\Controllers\TakeAttendanceController::class, 'store'])->name('attendance.take.store');
 
     Route::controller(\App\Http\Controllers\AttendanceController::class)->prefix('app/attendance')->group(function () {
         Route::get('register', 'register')->name('attendance.register');

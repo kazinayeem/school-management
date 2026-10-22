@@ -66,7 +66,19 @@ function ExamForm({ exam, onDone }: { exam: Exam | null; onDone: () => void }) {
     );
 }
 
-function Schedule({ examId, className, initial, published }: { examId: number; className: string; initial: Row[]; published: boolean }) {
+function Schedule({
+    examId,
+    className,
+    initial,
+    published,
+    rooms,
+}: {
+    examId: number;
+    className: string;
+    initial: Row[];
+    published: boolean;
+    rooms: string[];
+}) {
     const { t } = useI18n();
     const form = useForm<{ exam_id: number; class_name: string; rows: Row[] }>({ exam_id: examId, class_name: className, rows: initial });
     const set = (i: number, patch: Partial<Row>) =>
@@ -158,12 +170,23 @@ function Schedule({ examId, className, initial, published }: { examId: number; c
                                     )}
                                 </td>
                                 <td className="px-3 py-2">
-                                    <input
+                                    <select
                                         disabled={!r.include}
-                                        className={`${inputCls} w-28`}
+                                        aria-label={t('Room')}
+                                        className={`${inputCls} w-36`}
                                         value={r.room}
                                         onChange={(e) => set(i, { room: e.target.value })}
-                                    />
+                                    >
+                                        <option value="">{t('No room')}</option>
+                                        {rooms.map((room) => (
+                                            <option key={room}>{room}</option>
+                                        ))}
+                                    </select>
+                                    {form.errors[`rows.${i}.room` as keyof typeof form.errors] && (
+                                        <p className="mt-1 max-w-[9rem] text-xs text-red-600">
+                                            {t('This room is already booked for another exam at that time.')}
+                                        </p>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -185,6 +208,7 @@ export default function ExamSetup({
     selected,
     schedule,
     published,
+    rooms = [],
 }: {
     navigation: Nav;
     roleLabel: string;
@@ -193,6 +217,7 @@ export default function ExamSetup({
     selected: { exam: number; class: string };
     schedule: Row[];
     published: boolean;
+    rooms?: string[];
 }) {
     const { t } = useI18n();
     const [editing, setEditing] = useState<Exam | 'new' | null>(null);
@@ -271,6 +296,7 @@ export default function ExamSetup({
                         examId={selected.exam}
                         className={selected.class}
                         initial={schedule}
+                        rooms={rooms}
                         published={published}
                     />
                 </section>

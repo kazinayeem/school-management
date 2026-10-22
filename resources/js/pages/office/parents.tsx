@@ -1,13 +1,23 @@
+import { Avatar } from '@/components/avatar';
 import { Badge, Card, Field, ghostBtn, inputCls, Nav, OfficePage, primaryBtn, Table } from '@/components/office-ui';
+import { PickedStudent, StudentPicker } from '@/components/student-picker';
 import { useI18n } from '@/lib/i18n';
 import { router, useForm } from '@inertiajs/react';
 import { Pencil, Power } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
-type Child = { id: number; name: string; admission_no: string | null; class_name: string | null; section: string | null };
+type Child = {
+    id: number;
+    name: string;
+    admission_no: string | null;
+    roll_no?: string | null;
+    class_name: string | null;
+    section: string | null;
+    photo_url?: string | null;
+};
 type Parent = { id: number; name: string; username: string; email: string; phone: string | null; is_active: number; children: Child[] };
 
-function ParentForm({ parent, onDone }: { parent: Parent | null; onDone: () => void }) {
+function ParentForm({ parent, classes, onDone }: { parent: Parent | null; classes: string[]; onDone: () => void }) {
     const { t } = useI18n();
     const form = useForm({
         name: parent?.name ?? '',
@@ -15,12 +25,30 @@ function ParentForm({ parent, onDone }: { parent: Parent | null; onDone: () => v
         email: parent?.email ?? '',
         phone: parent?.phone ?? '',
         password: '',
-        children: (parent?.children ?? []).map((c) => c.admission_no).join(', '),
+        children: '',
     });
+    const [kids, setKids] = useState<PickedStudent[]>(
+        (parent?.children ?? []).map((c) => ({
+            id: c.id,
+            name: c.name,
+            admission_no: c.admission_no,
+            roll_no: c.roll_no ?? null,
+            class_name: c.class_name,
+            section: c.section,
+            photo: c.photo_url ?? null,
+        })),
+    );
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
         const done = { preserveScroll: true, onSuccess: onDone };
+        form.transform((d) => ({
+            ...d,
+            children: kids
+                .map((k) => k.admission_no)
+                .filter(Boolean)
+                .join(', '),
+        }));
         if (parent) form.put(`/app/system/parents/${parent.id}`, done);
         else form.post('/app/system/parents', done);
     };
@@ -51,15 +79,8 @@ function ParentForm({ parent, onDone }: { parent: Parent | null; onDone: () => v
                             onChange={(e) => form.setData('password', e.target.value)}
                         />
                     </Field>
-                    <Field label="Children's admission numbers" error={form.errors.children}>
-                        <input
-                            className={inputCls}
-                            dir="ltr"
-                            value={form.data.children}
-                            onChange={(e) => form.setData('children', e.target.value)}
-                            placeholder="2026-00001, 2026-00002"
-                        />
-                    </Field>
+                    <StudentPicker selected={kids} onChange={setKids} />
+                    {form.errors.children && <p className="text-xs text-red-600 md:col-span-2">{t(form.errors.children)}</p>}
                 </div>
                 <div className="flex gap-3">
                     <button disabled={form.processing} className={primaryBtn}>
@@ -74,7 +95,19 @@ function ParentForm({ parent, onDone }: { parent: Parent | null; onDone: () => v
     );
 }
 
-export default function Parents({ navigation, roleLabel, rows, search }: { navigation: Nav; roleLabel: string; rows: Parent[]; search: string }) {
+export default function Parents({
+    navigation,
+    roleLabel,
+    rows,
+    search,
+    classes,
+}: {
+    navigation: Nav;
+    roleLabel: string;
+    rows: Parent[];
+    search: string;
+    classes: string[];
+}) {
     const { t } = useI18n();
     const [editing, setEditing] = useState<Parent | 'new' | null>(null);
     const [q, setQ] = useState(search);
@@ -109,6 +142,7 @@ export default function Parents({ navigation, roleLabel, rows, search }: { navig
                 <ParentForm
                     key={editing === 'new' ? 'new' : editing.id}
                     parent={editing === 'new' ? null : editing}
+                    classes={classes}
                     onDone={() => setEditing(null)}
                 />
             )}
@@ -126,10 +160,13 @@ export default function Parents({ navigation, roleLabel, rows, search }: { navig
                                 <span className="text-slate-400">—</span>
                             ) : (
                                 p.children.map((c) => (
-                                    <div key={c.id}>
-                                        {c.name}{' '}
-                                        <span className="text-xs text-slate-400">
-                                            {[c.class_name ? t(c.class_name) : '', c.section].filter(Boolean).join(' ')}
+                                    <div key={c.id} className="flex items-center gap-2 py-0.5">
+                                        <Avatar name={c.name} src={c.photo_url} className="h-6 w-6 text-[10px]" />
+                                        <span>
+                                            {c.name}{' '}
+                                            <span className="text-xs text-slate-400">
+                                                {[c.class_name ? t(c.class_name) : '', c.section].filter(Boolean).join(' ')}
+                                            </span>
                                         </span>
                                     </div>
                                 ))

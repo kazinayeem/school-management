@@ -35,7 +35,7 @@ import {
     Wallet,
     type LucideIcon,
 } from 'lucide-react';
-import { PropsWithChildren, useMemo, useState } from 'react';
+import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 
 const icons: Record<string, LucideIcon> = {
     BookOpen,
@@ -76,11 +76,13 @@ export function OfficeShell({
 }: PropsWithChildren<{ navigation: Group[]; roleLabel: string }>) {
     const { auth, name, branding } = usePage<SharedData>().props;
     const path = usePage().url.split('?')[0];
-    const [open, setOpen] = useState(true);
+    const [open, setOpen] = useState(false);
     const [narrow, setNarrow] = useState(false);
     const [search, setSearch] = useState(false);
     const [query, setQuery] = useState('');
     const { t } = useI18n();
+
+    useEffect(() => router.on('navigate', () => setOpen(false)), []);
     const [expanded, setExpanded] = useState<string | null>(null);
 
     const links = useMemo(

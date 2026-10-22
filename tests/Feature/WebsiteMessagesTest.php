@@ -52,7 +52,7 @@ class WebsiteMessagesTest extends TestCase
 
         $this->get('/app/website/messages')->assertInertia(fn (Assert $p) => $p->where('rows.0.name', 'Newer')->where('rows.1.name', 'Old'));
 
-        $this->actingAs(User::factory()->create(['role' => 'staff']));
+        $this->actingAs(User::factory()->create(['role' => 'teacher']));
         $this->get('/app/website/messages')->assertForbidden();
         $this->put("/app/website/messages/{$old}", ['status' => 'read'])->assertForbidden();
         $this->delete("/app/website/messages/{$old}")->assertForbidden();

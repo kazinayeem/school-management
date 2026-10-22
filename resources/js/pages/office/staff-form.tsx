@@ -1,9 +1,13 @@
+import { PhotoUpload } from '@/components/avatar';
 import { Card, Field, ghostBtn, inputCls, Nav, OfficePage, primaryBtn } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
 import { Link, useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
 
 type Staff = {
+    role?: string;
+    photo?: string | null;
+    photo_url?: string | null;
     id: number;
     name: string;
     username: string;
@@ -21,6 +25,7 @@ export default function StaffForm({ navigation, roleLabel, staff }: { navigation
     const { t } = useI18n();
     const form = useForm({
         name: staff?.name ?? '',
+        role: staff?.role ?? 'teacher',
         username: staff?.username ?? '',
         email: staff?.email ?? '',
         phone: staff?.phone ?? '',
@@ -57,7 +62,18 @@ export default function StaffForm({ navigation, roleLabel, staff }: { navigation
         >
             <form onSubmit={submit}>
                 <Card className="space-y-5">
+                    {staff ? (
+                        <PhotoUpload userId={staff.id} name={staff.name} src={staff.photo_url} />
+                    ) : (
+                        <p className="text-xs text-slate-500">{t('Save first, then you can add a photo.')}</p>
+                    )}
                     <div className="grid gap-4 md:grid-cols-2">
+                        <Field label="Account type" error={form.errors.role}>
+                            <select className={inputCls} value={form.data.role} onChange={(e) => form.setData('role', e.target.value)}>
+                                <option value="teacher">{t('Teacher')}</option>
+                                <option value="staff">{t('Staff (office)')}</option>
+                            </select>
+                        </Field>
                         {text('name', 'Full name')}
                         {text('designation', 'Role')}
                         {text('department', 'Department')}

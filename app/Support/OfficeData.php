@@ -31,7 +31,7 @@ class OfficeData
 
         return [
             'firstName' => explode(' ', $user->name)[0],
-            'roleLabel' => $admin ? 'Super Admin' : 'Teacher',
+            'roleLabel' => Permissions::label($user->role),
             'session' => '2026',
             'today' => now()->format('l, F j, Y'),
             'metrics' => [
@@ -105,7 +105,7 @@ class OfficeData
         }
 
         if ($path === '/app/leave' || $path === '/app/leave/applications') {
-            return self::leaveBoard();
+            return self::leaveBoard($user);
         }
 
         if (str_starts_with($path, '/app/fees')) {
@@ -182,7 +182,7 @@ class OfficeData
 
         return [
             'students' => $students->count(),
-            'staff' => User::query()->where('role', 'staff')->count(),
+            'staff' => User::query()->whereIn('role', Permissions::EMPLOYEE_ROLES)->where('is_active', true)->count(),
             'unpaid' => DB::table('fee_invoices')->whereIn('status', ['unpaid', 'partial'])->count(),
             'progress' => (int) round((count($sections) - count($pending)) / $sectionCount * 100),
             'pendingCount' => count($pending),
@@ -225,6 +225,10 @@ class OfficeData
                     ->orWhere('student_profiles.admission_no', 'like', "%{$search}%")
                     ->orWhere('student_profiles.guardian_mobile', 'like', "%{$search}%");
             });
+        }
+
+        if ($request->user() !== null) {
+            TeacherScope::restrict($query, $request->user());
         }
 
         $total = (clone $query)->count();
@@ -338,11 +342,24 @@ class OfficeData
         ];
     }
 
-    /** @return list<string> */
-    private static function sectionOptions(User $user): array
+    /**
+     * The sections a user can take attendance for: every section for an admin, and for a
+     * teacher the sections they have been assigned to teach (a blank section means both).
+     *
+     * @return list<string>
+     */
+    public static function sectionOptions(User $user): array
     {
-        if ($user->role === 'staff') {
-            return ['Class 8-A'];
+        if ($user->role !== 'admin') {
+            $sections = [];
+            foreach (DB::table('teaching_assignments')->where('user_id', $user->id)->get(['class_name', 'section']) as $a) {
+                foreach ($a->section ? [$a->section] : ['A', 'B'] as $letter) {
+                    $sections[$a->class_name.'-'.$letter] = ((int) filter_var($a->class_name, FILTER_SANITIZE_NUMBER_INT)) * 10 + ($letter === 'B' ? 1 : 0);
+                }
+            }
+            asort($sections);
+
+            return array_keys($sections);
         }
 
         return StudentProfile::query()
@@ -416,11 +433,16 @@ class OfficeData
         ];
     }
 
-    private static function leaveBoard(): array
+    private static function leaveBoard(?User $viewer = null): array
     {
         $rows = DB::table('leave_requests')
             ->join('users', 'users.id', '=', 'leave_requests.user_id')
+            ->when($viewer && TeacherScope::applies($viewer), function ($q) use ($viewer) {
+                $q->join('student_profiles', 'student_profiles.user_id', '=', 'users.id');
+                TeacherScope::restrict($q, $viewer);
+            })
             ->orderByDesc('leave_requests.start_date')
+            ->select('leave_requests.*', 'users.name')
             ->get()
             ->map(fn ($row) => [
                 'id' => $row->id,

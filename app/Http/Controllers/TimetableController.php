@@ -21,6 +21,10 @@ class TimetableController extends Controller
         $this->access($request, '/app/timetable');
         $class = $this->classOrDefault((string) $request->query('class', ''));
         $section = in_array($request->query('section'), ['A', 'B'], true) ? (string) $request->query('section') : 'A';
+        if (\App\Support\TeacherScope::applies($request->user())) {
+            $mine = \App\Support\TeacherScope::sectionLetters($request->user(), $class);
+            $section = in_array($section, $mine, true) ? $section : ($mine[0] ?? 'A');
+        }
 
         $cells = [];
         foreach (DB::table('class_periods')->where('class_name', $class)->where('section', $section)->get() as $row) {
@@ -36,8 +40,25 @@ class TimetableController extends Controller
             'periods' => $this->periods(),
             'cells' => (object) $cells,
             'subjects' => DB::table('academic_subjects')->where('active', true)->orderBy('name')->pluck('name'),
-            'teachers' => DB::table('users')->where('role', 'staff')->orderBy('name')->pluck('name'),
+            'teachers' => DB::table('users')->where('role', 'teacher')->where('is_active', true)->orderBy('name')->pluck('name'),
+            'rooms' => DB::table('rooms')->where('active', true)->orderBy('name')->pluck('name'),
+            'taken' => (object) $this->takenRooms($class, $section),
         ]);
+    }
+
+    /**
+     * Rooms already held by another class or section, keyed "day-period".
+     *
+     * @return array<string, list<array{room: string, by: string}>>
+     */
+    private function takenRooms(string $class, string $section): array
+    {
+        $taken = [];
+        foreach (DB::table('class_periods')->whereNotNull('room')->where('room', '!=', '')->where(fn ($q) => $q->where('class_name', '!=', $class)->orWhere('section', '!=', $section))->get(['day', 'sort', 'room', 'class_name', 'section']) as $r) {
+            $taken["{$r->day}-{$r->sort}"][] = ['room' => $r->room, 'by' => "{$r->class_name} {$r->section}"];
+        }
+
+        return $taken;
     }
 
     public function saveRoutine(Request $request): RedirectResponse
@@ -51,8 +72,8 @@ class TimetableController extends Controller
             'cells.*.day' => ['required', 'integer', 'between:0,4'],
             'cells.*.sort' => ['required', 'integer', Rule::in($periods->keys()->all())],
             'cells.*.subject' => ['nullable', 'string', Rule::exists('academic_subjects', 'name')],
-            'cells.*.teacher' => ['nullable', 'string', Rule::exists('users', 'name')->where('role', 'staff')],
-            'cells.*.room' => ['nullable', 'string', 'max:50'],
+            'cells.*.teacher' => ['nullable', 'string', Rule::exists('users', 'name')->where('role', 'teacher')],
+            'cells.*.room' => ['nullable', 'string', Rule::exists('rooms', 'name')->where('active', 1)],
         ]);
 
         $clashes = [];
@@ -64,6 +85,16 @@ class TimetableController extends Controller
                 ->where(fn ($q) => $q->where('class_name', '!=', $data['class_name'])->orWhere('section', '!=', $data['section']))->first();
             if ($other) {
                 $clashes[] = "{$cell['teacher']} already teaches {$other->class_name} {$other->section} on ".self::DAYS[$cell['day']].', '.$periods[$cell['sort']]->label.'.';
+            }
+        }
+        foreach ($data['cells'] as $cell) {
+            if (blank($cell['room'] ?? null)) {
+                continue;
+            }
+            $other = DB::table('class_periods')->where('room', $cell['room'])->where('day', $cell['day'])->where('sort', $cell['sort'])
+                ->where(fn ($q) => $q->where('class_name', '!=', $data['class_name'])->orWhere('section', '!=', $data['section']))->first();
+            if ($other) {
+                $clashes[] = "{$cell['room']} is already used by {$other->class_name} {$other->section} on ".self::DAYS[$cell['day']].', '.$periods[$cell['sort']]->label.'.';
             }
         }
         if ($clashes) {
@@ -95,10 +126,14 @@ class TimetableController extends Controller
     public function teacher(Request $request): Response
     {
         $this->access($request, '/app/timetable/teacher');
-        $teachers = DB::table('users')->where('role', 'staff')->orderBy('name')->pluck('name')->all();
-        $default = $request->user()->role === 'staff' ? $request->user()->name : ($teachers[0] ?? '');
+        $teachers = DB::table('users')->where('role', 'teacher')->where('is_active', true)->orderBy('name')->pluck('name')->all();
+        $default = $request->user()->role === 'teacher' ? $request->user()->name : ($teachers[0] ?? '');
         $teacher = (string) $request->query('teacher', $default);
         $teacher = in_array($teacher, $teachers, true) ? $teacher : $default;
+        if ($request->user()->role === 'teacher') {
+            $teacher = $request->user()->name; // a teacher sees only their own routine
+            $teachers = [$teacher];
+        }
 
         $cells = [];
         foreach (DB::table('class_periods')->where('teacher', $teacher)->get() as $row) {
@@ -127,7 +162,7 @@ class TimetableController extends Controller
                 ->orderByDesc('date')->orderByDesc('substitutions.id')->limit(200)->get(['substitutions.*', 'users.name as substitute']),
             'classes' => $this->classes(),
             'periods' => collect($this->periods())->where('is_break', false)->values(),
-            'teachers' => DB::table('users')->where('role', 'staff')->orderBy('name')->get(['id', 'name']),
+            'teachers' => DB::table('users')->where('role', 'teacher')->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'today' => today()->toDateString(),
         ]);
     }
@@ -140,7 +175,7 @@ class TimetableController extends Controller
             'class_name' => ['required', Rule::in($this->classes())],
             'section' => ['required', Rule::in(['A', 'B'])],
             'period_label' => ['required', Rule::exists('bell_periods', 'label')->where('is_break', 0)],
-            'substitute_user_id' => ['required', Rule::exists('users', 'id')->where('role', 'staff')],
+            'substitute_user_id' => ['required', Rule::exists('users', 'id')->where('role', 'teacher')],
             'reason' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -191,7 +226,10 @@ class TimetableController extends Controller
     /** @return list<string> */
     private function classes(): array
     {
-        return DB::table('academic_classes')->orderBy('sort_order')->pluck('name')->all();
+        $all = DB::table('academic_classes')->orderBy('sort_order')->pluck('name')->all();
+        $user = request()->user();
+
+        return $user && \App\Support\TeacherScope::applies($user) ? array_values(array_intersect($all, \App\Support\TeacherScope::classes($user))) : $all;
     }
 
     private function classOrDefault(string $class): string
@@ -205,13 +243,14 @@ class TimetableController extends Controller
     {
         $role = $request->user()->role;
 
-        return ['navigation' => OfficeMenu::for($role), 'roleLabel' => $role === 'admin' ? 'Super Admin' : 'Teacher'];
+        return ['navigation' => OfficeMenu::for($role), 'roleLabel' => \App\Support\Permissions::label($role)];
     }
 
     private function access(Request $request, string $path): void
     {
         $role = $request->user()->role;
-        abort_unless(in_array($role, ['admin', 'staff'], true) && OfficeMenu::allows($role, $path), 403);
+        \App\Support\Permissions::office($request);
+        abort_unless(OfficeMenu::allows($role, $path), 403);
     }
 
     private function admin(Request $request): void

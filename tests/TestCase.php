@@ -14,6 +14,7 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        \App\Support\Permissions::flush();
 
         // A request that crashes must never pass as "no validation errors".
         $this->serverErrors = [];

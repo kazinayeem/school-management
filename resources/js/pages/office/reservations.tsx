@@ -1,7 +1,8 @@
 import { Badge, Card, Field, inputCls, Nav, OfficePage, primaryBtn, Table } from '@/components/office-ui';
+import { PickedStudent, StudentSelect } from '@/components/student-picker';
 import { useI18n } from '@/lib/i18n';
 import { router, useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 
 type Row = { id: number; name: string; title: string; reserved_on: string; status: string };
 const tone = { waiting: 'amber', ready: 'green', fulfilled: 'slate', cancelled: 'red' } as const;
@@ -19,11 +20,18 @@ export default function Reservations({
     books: { id: number; title: string }[];
 }) {
     const { t } = useI18n();
+    const [picked, setPicked] = useState<PickedStudent | null>(null);
     const form = useForm({ member: '', book_id: '' });
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        form.post('/app/library/reservations', { preserveScroll: true, onSuccess: () => form.reset() });
+        form.post('/app/library/reservations', {
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset();
+                setPicked(null);
+            },
+        });
     };
     const set = (id: number, status: 'ready' | 'cancelled') => router.put(`/app/library/reservations/${id}`, { status }, { preserveScroll: true });
 
@@ -32,9 +40,16 @@ export default function Reservations({
             <form onSubmit={submit}>
                 <Card className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
-                        <Field label="Card no., admission no. or username" error={form.errors.member}>
-                            <input className={inputCls} value={form.data.member} onChange={(e) => form.setData('member', e.target.value)} />
-                        </Field>
+                        <StudentSelect
+                            label="Student"
+                            value={picked}
+                            scope="library"
+                            error={form.errors.member}
+                            onChange={(s) => {
+                                setPicked(s);
+                                form.setData('member', s?.card_no ?? '');
+                            }}
+                        />
                         <Field label="Book" error={form.errors.book_id}>
                             <select className={inputCls} value={form.data.book_id} onChange={(e) => form.setData('book_id', e.target.value)}>
                                 <option value="">{t('Choose...')}</option>

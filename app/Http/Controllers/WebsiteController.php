@@ -40,14 +40,14 @@ class WebsiteController extends Controller
 
     public function index(Request $request, string $resource): Response
     {
-        $readOnly = $request->user()->role !== 'admin';
-        if ($readOnly) {
-            abort_unless($this->group($request) === 'academic' && OfficeMenu::allows($request->user()->role, "/app/academic/{$resource}"), 403);
-        }
+        \App\Support\Permissions::office($request);
+        $role = $request->user()->role;
+        $module = \App\Support\Permissions::moduleOf('/'.$request->path());
+        $readOnly = $role !== 'admin' && ($module === null || ! \App\Support\Permissions::canRole($role, $module, 'edit'));
 
         $shared = [
-            'navigation' => OfficeMenu::for($request->user()->role),
-            'roleLabel' => $readOnly ? 'Teacher' : 'Super Admin',
+            'navigation' => OfficeMenu::for($role),
+            'roleLabel' => \App\Support\Permissions::label($role),
             'readOnly' => $readOnly,
         ];
 
@@ -116,7 +116,15 @@ class WebsiteController extends Controller
         $def = $this->defs($request)[$resource];
         abort_unless(DB::table($def['table'])->where('id', $id)->exists(), 404);
 
+        $before = $resource === 'rooms' ? DB::table('rooms')->where('id', $id)->value('name') : null;
         DB::table($def['table'])->where('id', $id)->update($this->payload($request, $resource, $def, $id) + ['updated_at' => now()]);
+        if ($resource === 'rooms' && $before !== null) {
+            $after = DB::table('rooms')->where('id', $id)->value('name');
+            if ($after !== $before) {
+                DB::table('class_periods')->where('room', $before)->update(['room' => $after]);
+                DB::table('exam_subjects')->where('room', $before)->update(['room' => $after]);
+            }
+        }
         $this->afterSave($resource, $id);
         Audit::log('updated', $def['label'], "#{$id}");
 
@@ -128,8 +136,9 @@ class WebsiteController extends Controller
         $this->authorizeAdmin($request);
         $def = $this->defs($request)[$resource];
 
-        if (isset($def['delete_guard'])) {
-            [$table, $column, $message, $via] = $def['delete_guard'] + [3 => 'id'];
+        $guards = $def['delete_guards'] ?? (isset($def['delete_guard']) ? [$def['delete_guard']] : []);
+        foreach ($guards as $guard) {
+            [$table, $column, $message, $via] = $guard + [3 => 'id'];
             $key = $via === 'id' ? $id : DB::table($def['table'])->where('id', $id)->value($via);
             if (DB::table($table)->where($column, $key)->exists()) {
                 return back()->with('error', $message);
@@ -224,10 +233,13 @@ class WebsiteController extends Controller
             unset($f['options_query']);
 
             if ($q === 'people') {
-                $f['options'] = DB::table('users')->whereIn('role', ['staff', 'student'])->orderBy('role')->orderBy('name')->limit(1500)->get(['id', 'name', 'role'])
+                $f['options'] = DB::table('users')->whereIn('role', ['teacher', 'staff', 'student'])->orderBy('role')->orderBy('name')->limit(1500)->get(['id', 'name', 'role'])
                     ->map(fn ($u) => ['value' => (string) $u->id, 'label' => "{$u->name} ({$u->role})"])->all();
+            } elseif ($q === 'teachers') {
+                $f['options'] = DB::table('users')->where('role', 'teacher')->where('is_active', true)->orderBy('name')->get(['id', 'name'])
+                    ->map(fn ($u) => ['value' => (string) $u->id, 'label' => $u->name])->all();
             } elseif ($q === 'staff') {
-                $f['options'] = DB::table('users')->where('role', 'staff')->orderBy('name')->get(['id', 'name'])
+                $f['options'] = DB::table('users')->whereIn('role', ['teacher', 'staff'])->orderBy('name')->get(['id', 'name'])
                     ->map(fn ($u) => ['value' => (string) $u->id, 'label' => $u->name])->all();
             } elseif ($q === 'students') {
                 $f['options'] = DB::table('users')
@@ -276,6 +288,6 @@ class WebsiteController extends Controller
 
     private function authorizeAdmin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        \App\Support\Permissions::office($request);
     }
 }

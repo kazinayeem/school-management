@@ -50,8 +50,8 @@ class SystemController extends Controller
 
         return Inertia::render('office/roles', [
             ...$this->shared(),
-            'modules' => collect(Permissions::MODULES)->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values(),
-            'granted' => Permissions::granted('staff'),
+            'modules' => collect(Permissions::MODULES)->map(fn ($m, $key) => ['key' => $key, 'label' => $m[0]])->values(),
+            'granted' => ['teacher' => Permissions::granted('teacher'), 'staff' => Permissions::granted('staff')],
             'counts' => DB::table('users')->selectRaw('role, count(*) as total')->groupBy('role')->pluck('total', 'role'),
         ]);
     }
@@ -59,20 +59,29 @@ class SystemController extends Controller
     public function saveRoles(Request $request): RedirectResponse
     {
         $this->admin($request);
-        $data = $request->validate(['permissions' => ['present', 'array'], 'permissions.*' => ['string', 'in:'.implode(',', array_keys(Permissions::MODULES))]]);
+        $data = $request->validate([
+            'role' => ['required', 'in:teacher,staff'],
+            'permissions' => ['present', 'array'],
+            'permissions.*' => ['string'],
+        ]);
 
-        DB::transaction(function () use ($data) {
-            DB::table('role_permissions')->where('role', 'staff')->delete();
-            DB::table('role_permissions')->insert(array_map(fn ($p) => ['role' => 'staff', 'permission' => $p], array_values(array_unique($data['permissions']))));
+        $permissions = Permissions::normalize($data['permissions']);
+
+        DB::transaction(function () use ($data, $permissions) {
+            DB::table('role_permissions')->where('role', $data['role'])->delete();
+            if ($permissions !== []) {
+                DB::table('role_permissions')->insert(array_map(fn ($p) => ['role' => $data['role'], 'permission' => $p], $permissions));
+            }
         });
-        Audit::log('updated', 'Roles & Permissions', 'Staff: '.(implode(', ', $data['permissions']) ?: 'no modules'));
+        Permissions::flush();
+        Audit::log('updated', 'Roles & Permissions', ucfirst($data['role']).': '.(count($permissions) ?: 'no').' permissions');
 
         return back()->with('status', 'Permissions saved.');
     }
 
     private function shared(): array
     {
-        return ['navigation' => OfficeMenu::for('admin'), 'roleLabel' => 'Super Admin'];
+        return ['navigation' => OfficeMenu::for(request()->user()->role), 'roleLabel' => 'Super Admin'];
     }
 
     private function admin(Request $request): void

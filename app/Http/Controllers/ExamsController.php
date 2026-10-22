@@ -55,6 +55,7 @@ class ExamsController extends Controller
             'selected' => ['exam' => $examId, 'class' => $class],
             'schedule' => $schedule,
             'published' => $examId ? DB::table('exam_publications')->where('exam_id', $examId)->where('class_name', $class)->exists() : false,
+            'rooms' => DB::table('rooms')->where('active', true)->orderBy('name')->pluck('name'),
         ]);
     }
 
@@ -103,7 +104,7 @@ class ExamsController extends Controller
             'rows.*.starts_at' => ['nullable', 'date_format:H:i'],
             'rows.*.full_marks' => ['required', 'integer', 'min:1', 'max:1000'],
             'rows.*.pass_marks' => ['required', 'integer', 'min:0', 'lte:rows.*.full_marks'],
-            'rows.*.room' => ['nullable', 'string', 'max:50'],
+            'rows.*.room' => ['nullable', 'string', Rule::exists('rooms', 'name')->where('active', 1)],
         ]);
 
         if (DB::table('exam_publications')->where('exam_id', $data['exam_id'])->where('class_name', $data['class_name'])->exists()) {
@@ -127,6 +128,25 @@ class ExamsController extends Controller
                 $errors["rows.{$i}.exam_date"] = 'The date must fall within the exam period.';
             }
             $keep[(int) $row['subject_id']] = $row;
+        }
+
+        // A room cannot hold two exams on the same day within three hours of each other.
+        $minutes = fn (?string $t) => $t ? ((int) substr($t, 0, 2)) * 60 + (int) substr($t, 3, 2) : null;
+        $close = fn (?int $a, ?int $b) => $a === null || $b === null || abs($a - $b) < 180;
+        $booked = [];
+        foreach ($data['rows'] as $i => $row) {
+            if (empty($row['include']) || blank($row['room'] ?? null) || blank($row['exam_date'] ?? null)) {
+                continue;
+            }
+            $mine = $minutes($row['starts_at'] ?? null);
+            $others = DB::table('exam_subjects')->where('room', $row['room'])->where('exam_date', $row['exam_date'])
+                ->where(fn ($q) => $q->where('exam_id', '!=', $data['exam_id'])->orWhere('class_name', '!=', $data['class_name']))->get();
+            $clash = $others->first(fn ($o) => $close($mine, $minutes($o->starts_at ? substr((string) $o->starts_at, 0, 5) : null)))
+                || collect($booked)->contains(fn ($b) => $b[0] === $row['room'] && $b[1] === $row['exam_date'] && $close($mine, $b[2]));
+            if ($clash) {
+                $errors["rows.{$i}.room"] = "{$row['room']} is already booked for another exam at that time.";
+            }
+            $booked[] = [$row['room'], $row['exam_date'], $mine];
         }
         if ($errors) {
             return back()->withErrors($errors);
@@ -191,7 +211,7 @@ class ExamsController extends Controller
         $locked = $exam ? DB::table('exam_publications')->where('exam_id', $exam->id)->where('class_name', $class)->exists() : false;
 
         $existing = $current ? DB::table('exam_results')->where('exam_id', $exam->id)->where('subject_id', $subjectId)->get()->keyBy('user_id') : collect();
-        $students = $current ? $this->students($class, $section)->map(fn ($s) => [
+        $students = $current ? $this->onlyMine($this->students($class, $section), $class)->map(fn ($s) => [
             'id' => $s->id, 'name' => $s->name, 'roll_no' => $s->roll_no, 'section' => $s->section,
             'marks' => isset($existing[$s->id]) && ! $existing[$s->id]->absent ? (int) $existing[$s->id]->marks : null,
             'absent' => (bool) ($existing[$s->id]->absent ?? false),
@@ -232,7 +252,7 @@ class ExamsController extends Controller
             return back()->with('error', 'The result is published. Marks cannot be changed.');
         }
 
-        $valid = $this->students($data['class_name'], $data['section'] ?? null)->pluck('id')->all();
+        $valid = $this->onlyMine($this->students($data['class_name'], $data['section'] ?? null), $data['class_name'])->pluck('id')->all();
         $errors = [];
         foreach ($data['entries'] as $i => $e) {
             if (! in_array((int) $e['user_id'], $valid, true)) {
@@ -279,6 +299,9 @@ class ExamsController extends Controller
         $this->access($request, '/app/exams/results');
         [$exam, $class, $section] = $this->filters($request);
         $board = $exam ? $this->board($exam->id, $class, $section) : ['subjects' => [], 'rows' => [], 'stats' => null];
+        if ($exam && \App\Support\TeacherScope::applies($request->user())) {
+            $board['rows'] = array_values(array_filter($board['rows'], fn ($r) => \App\Support\TeacherScope::allowsSection($request->user(), $class, $r['section'])));
+        }
 
         return Inertia::render('office/exam-results', [
             ...$this->shared($request),
@@ -470,7 +493,18 @@ class ExamsController extends Controller
     /** @return list<string> */
     private function classes(): array
     {
-        return DB::table('academic_classes')->orderBy('sort_order')->pluck('name')->all();
+        $all = DB::table('academic_classes')->orderBy('sort_order')->pluck('name')->all();
+        $user = request()->user();
+
+        return $user && \App\Support\TeacherScope::applies($user) ? array_values(array_intersect($all, \App\Support\TeacherScope::classes($user))) : $all;
+    }
+
+    /** Teachers see only the students in sections they teach. */
+    private function onlyMine(Collection $students, string $class): Collection
+    {
+        $user = request()->user();
+
+        return $user && \App\Support\TeacherScope::applies($user) ? $students->filter(fn ($s) => \App\Support\TeacherScope::allowsSection($user, $class, $s->section))->values() : $students;
     }
 
     private function classOrDefault(string $class): string
@@ -484,13 +518,14 @@ class ExamsController extends Controller
     {
         $role = $request->user()->role;
 
-        return ['navigation' => OfficeMenu::for($role), 'roleLabel' => $role === 'admin' ? 'Super Admin' : 'Teacher'];
+        return ['navigation' => OfficeMenu::for($role), 'roleLabel' => \App\Support\Permissions::label($role)];
     }
 
     private function access(Request $request, string $path): void
     {
         $role = $request->user()->role;
-        abort_unless(in_array($role, ['admin', 'staff'], true) && OfficeMenu::allows($role, $path), 403);
+        \App\Support\Permissions::office($request);
+        abort_unless(OfficeMenu::allows($role, $path), 403);
     }
 
     private function admin(Request $request): void

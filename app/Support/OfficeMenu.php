@@ -12,7 +12,7 @@ class OfficeMenu
     /** @return list<array{caption: ?string, items: list<array<string, mixed>>}> */
     public static function for(string $role): array
     {
-        return $role === 'admin' ? self::admin() : self::filter($role, self::staff());
+        return $role === 'admin' ? self::admin() : self::filter($role, self::admin());
     }
 
     public static function allows(string $role, string $path): bool
@@ -21,17 +21,21 @@ class OfficeMenu
             $path = '/app/students';
         }
 
-        if ($role === 'admin' && isset(self::HIDDEN[$path])) {
-            return true;
-        }
-
-        foreach (self::flat($role) as $item) {
-            if ($item['href'] === $path) {
+        if ($role === 'admin') {
+            if (isset(self::HIDDEN[$path])) {
                 return true;
             }
+
+            foreach (self::flat($role) as $item) {
+                if ($item['href'] === $path) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
-        return false;
+        return Permissions::pathAllowed($role, $path);
     }
 
     public static function find(string $role, string $path): ?array
@@ -68,21 +72,20 @@ class OfficeMenu
         return $items;
     }
 
-    /** Hide the modules an admin has not granted to this role. */
+    /** Keep only the pages this role may open: its modules with View, minus admin-only pages. */
     private static function filter(string $role, array $groups): array
     {
-        $granted = Permissions::granted($role);
         $out = [];
 
         foreach ($groups as $group) {
             $items = [];
             foreach ($group['items'] as $item) {
                 if (isset($item['children'])) {
-                    $item['children'] = array_values(array_filter($item['children'], fn ($c) => Permissions::moduleOf($c['href']) === null || in_array(Permissions::moduleOf($c['href']), $granted, true)));
+                    $item['children'] = array_values(array_filter($item['children'], fn ($c) => Permissions::pathAllowed($role, $c['href'])));
                     if ($item['children'] === []) {
                         continue;
                     }
-                } elseif (isset($item['href']) && Permissions::moduleOf($item['href']) !== null && ! in_array(Permissions::moduleOf($item['href']), $granted, true)) {
+                } elseif (! isset($item['href']) || ! Permissions::pathAllowed($role, $item['href'])) {
                     continue;
                 }
                 $items[] = $item;
@@ -93,53 +96,6 @@ class OfficeMenu
         }
 
         return $out;
-    }
-
-    private static function staff(): array
-    {
-        return [
-            ['caption' => null, 'items' => [
-                ['label' => 'Dashboard', 'href' => '/app', 'icon' => 'LayoutGrid'],
-            ]],
-            ['caption' => 'Academic', 'items' => [
-                ['label' => 'Academic Structure', 'icon' => 'School', 'children' => [
-                    ['label' => 'Classes', 'href' => '/app/academic/classes'],
-                    ['label' => 'Sections', 'href' => '/app/academic/sections'],
-                    ['label' => 'Subjects', 'href' => '/app/academic/subjects'],
-                ]],
-                ['label' => 'Timetable', 'icon' => 'CalendarDays', 'children' => [
-                    ['label' => 'Class Routine', 'href' => '/app/timetable'],
-                    ['label' => 'Teacher Routine', 'href' => '/app/timetable/teacher'],
-                ]],
-                ['label' => 'Attendance', 'icon' => 'CalendarCheck', 'children' => [
-                    ['label' => 'Mark Attendance', 'href' => '/app/attendance'],
-                    ['label' => 'Register & Reports', 'href' => '/app/attendance/register'],
-                ]],
-                ['label' => 'Homework', 'href' => '/app/homework', 'icon' => 'BookOpen'],
-                ['label' => 'Exams & Results', 'icon' => 'GraduationCap', 'children' => [
-                    ['label' => 'Marks Entry', 'href' => '/app/exams/marks'],
-                    ['label' => 'Results', 'href' => '/app/exams/results'],
-                ]],
-            ]],
-            ['caption' => 'People', 'items' => [
-                ['label' => 'Students', 'icon' => 'Users', 'children' => [
-                    ['label' => 'Student List', 'href' => '/app/students'],
-                ]],
-                ['label' => 'Leave', 'icon' => 'CalendarOff', 'children' => [
-                    ['label' => 'Applications', 'href' => '/app/leave'],
-                ]],
-            ]],
-            ['caption' => 'Campus', 'items' => [
-                ['label' => 'Library', 'icon' => 'BookOpen', 'children' => [
-                    ['label' => 'Give a Book', 'href' => '/app/library'],
-                    ['label' => 'Take Books Back', 'href' => '/app/library/desk'],
-                    ['label' => 'Overdue & Fines', 'href' => '/app/library/fines'],
-                ]],
-            ]],
-            ['caption' => 'Communication', 'items' => [
-                ['label' => 'Notices', 'href' => '/app/notices', 'icon' => 'Megaphone'],
-            ]],
-        ];
     }
 
     private static function admin(): array
@@ -166,6 +122,7 @@ class OfficeMenu
                     ['Teacher Routine', '/app/timetable/teacher'],
                     ['Substitutions', '/app/timetable/substitutions'],
                     ['Bell Schedule', '/app/timetable/periods'],
+                    ['Rooms', '/app/timetable/rooms'],
                 ])],
                 ['label' => 'Attendance', 'icon' => 'CalendarCheck', 'children' => $children([
                     ['Mark Attendance', '/app/attendance'],

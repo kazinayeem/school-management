@@ -210,12 +210,13 @@ class LibraryController extends Controller
     {
         $role = $request->user()->role;
 
-        return ['navigation' => OfficeMenu::for($role), 'roleLabel' => $role === 'admin' ? 'Super Admin' : 'Teacher'];
+        return ['navigation' => OfficeMenu::for($role), 'roleLabel' => \App\Support\Permissions::label($role)];
     }
 
     private function guard(Request $request, string $path): void
     {
         $role = $request->user()->role;
-        abort_unless(in_array($role, ['admin', 'staff'], true) && OfficeMenu::allows($role, $path), 403);
+        \App\Support\Permissions::office($request);
+        abort_unless(OfficeMenu::allows($role, $path), 403);
     }
 }

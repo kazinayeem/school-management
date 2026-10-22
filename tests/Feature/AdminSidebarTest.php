@@ -42,7 +42,7 @@ class AdminSidebarTest extends TestCase
     public function test_staff_cannot_open_admin_only_pages(): void
     {
         $this->seed();
-        $this->actingAs(User::where('role', 'staff')->firstOrFail());
+        $this->actingAs(User::where('role', 'teacher')->firstOrFail());
 
         foreach (['/app/fees/generate', '/app/system/roles', '/app/website/pages', '/app/settings/general', '/app/accounting'] as $path) {
             $this->assertContains($this->get($path)->getStatusCode(), [403, 404], $path);

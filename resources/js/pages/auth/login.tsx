@@ -1,15 +1,16 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { Check, ChevronRight, Copy, Eye, EyeOff, GraduationCap, Languages as LanguagesIcon, Lock, ShieldCheck, User, Users, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Eye, EyeOff, GraduationCap, Languages as LanguagesIcon, Lock, ShieldCheck, User, Users, X, BookOpen } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 import { ThemeToggle } from '@/components/preferences';
 import { useI18n, type Locale } from '@/lib/i18n';
 import { Branding, Language, SharedData } from '@/types';
 
-type Role = 'admin' | 'staff' | 'student' | 'parent';
+type Role = 'admin' | 'teacher' | 'staff' | 'student' | 'parent';
 
 const roles: { value: Role; label: string; icon: typeof User }[] = [
     { value: 'admin', label: 'Admin', icon: ShieldCheck },
+    { value: 'teacher', label: 'Teacher', icon: BookOpen },
     { value: 'staff', label: 'Staff', icon: Users },
     { value: 'student', label: 'Student', icon: GraduationCap },
     { value: 'parent', label: 'Parent', icon: Users },
@@ -169,7 +170,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                 >
                                     {t('Select Your Role')}
                                 </p>
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                                     {roles.map(({ value, label, icon: Icon }) => {
                                         const active = data.role === value;
 
@@ -211,7 +212,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                                 >
                                                     <Icon className="h-[17px] w-[17px]" strokeWidth={1.8} />
                                                 </span>
-                                                <strong className="text-center text-[14px] leading-tight font-semibold">{t(label)}</strong>
+                                                <strong className="text-center text-[11px] leading-tight font-semibold sm:text-[14px]">{t(label)}</strong>
                                             </label>
                                         );
                                     })}

@@ -23,7 +23,7 @@ class ReportsTest extends TestCase
 
     private function staff(string $name): User
     {
-        return User::factory()->create(['role' => 'staff', 'name' => $name]);
+        return User::factory()->create(['role' => 'teacher', 'name' => $name]);
     }
 
     private function student(string $name, string $class = 'Class 6', string $section = 'A', string $mobile = '01711111111'): User

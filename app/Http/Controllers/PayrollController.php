@@ -16,7 +16,7 @@ class PayrollController extends Controller
     {
         $this->admin($request);
         $components = DB::table('payroll_components')->where('active', true)->orderBy('kind')->orderBy('name')->get(['id', 'name', 'kind', 'calc', 'value']);
-        $staff = DB::table('users')->where('role', 'staff')->orderBy('name')->get(['id', 'name']);
+        $staff = DB::table('users')->whereIn('role', ['teacher', 'staff'])->where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $structures = DB::table('salary_structures')->get()->keyBy('user_id');
         $items = DB::table('salary_structure_items')->get()->groupBy('structure_id');
 
@@ -40,7 +40,7 @@ class PayrollController extends Controller
             'items' => ['nullable', 'array'],
             'items.*' => ['nullable', 'integer', 'min:0'],
         ]);
-        abort_unless(DB::table('users')->where('id', $data['user_id'])->where('role', 'staff')->exists(), 422);
+        abort_unless(DB::table('users')->where('id', $data['user_id'])->whereIn('role', ['teacher', 'staff'])->exists(), 422);
 
         $valid = DB::table('payroll_components')->pluck('id')->all();
         DB::transaction(function () use ($data, $valid) {
@@ -160,11 +160,11 @@ class PayrollController extends Controller
 
     private function shared(): array
     {
-        return ['navigation' => OfficeMenu::for('admin'), 'roleLabel' => 'Super Admin'];
+        return ['navigation' => OfficeMenu::for(request()->user()->role), 'roleLabel' => 'Super Admin'];
     }
 
     private function admin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        \App\Support\Permissions::office($request);
     }
 }

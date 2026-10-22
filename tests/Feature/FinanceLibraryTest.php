@@ -240,7 +240,7 @@ class FinanceLibraryTest extends TestCase
         $this->post('/app/library/settings', ['library_loan_days' => 0, 'library_fine_per_day' => 7, 'library_max_books' => 2])->assertSessionHasErrors('library_loan_days');
         $this->get('/app/library')->assertInertia(fn (Assert $p) => $p->where('loanDays', 10));
 
-        $this->actingAs(User::factory()->create(['role' => 'staff']));
+        $this->actingAs(User::factory()->create(['role' => 'teacher']));
         foreach (['/app/library', '/app/library/desk', '/app/library/fines'] as $path) {
             $this->get($path)->assertOk();
         }
@@ -268,7 +268,7 @@ class FinanceLibraryTest extends TestCase
     public function test_academic_assignments_sections_and_guards(): void
     {
         $this->admin();
-        $teacher = User::factory()->create(['role' => 'staff']);
+        $teacher = User::factory()->create(['role' => 'teacher']);
         $subject = DB::table('academic_subjects')->where('code', 'MAT')->value('id');
 
         $this->post('/app/academic/assignments', ['user_id' => $teacher->id, 'class_name' => 'Class 6', 'section' => 'A', 'subject_id' => $subject])->assertSessionHasNoErrors();
@@ -284,7 +284,7 @@ class FinanceLibraryTest extends TestCase
 
     public function test_staff_can_only_read_classes_sections_subjects(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'staff']));
+        $this->actingAs(User::factory()->create(['role' => 'teacher']));
 
         foreach (['classes', 'sections', 'subjects'] as $resource) {
             $this->get("/app/academic/{$resource}")->assertOk()->assertInertia(fn (Assert $p) => $p->where('readOnly', true));

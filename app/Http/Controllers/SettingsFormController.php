@@ -130,7 +130,7 @@ class SettingsFormController extends Controller
         }
 
         return Inertia::render('office/website', [
-            'navigation' => OfficeMenu::for('admin'),
+            'navigation' => OfficeMenu::for(request()->user()->role),
             'roleLabel' => 'Super Admin',
             'resource' => 'settings',
             'baseUrl' => $config['path'],

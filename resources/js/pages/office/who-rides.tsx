@@ -1,4 +1,5 @@
 import { Card, Field, inputCls, money, Nav, OfficePage, primaryBtn, Table } from '@/components/office-ui';
+import { PickedStudent, StudentSelect } from '@/components/student-picker';
 import { useI18n } from '@/lib/i18n';
 import { router, useForm } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
@@ -37,6 +38,7 @@ export default function WhoRides({
 }) {
     const { t } = useI18n();
     const first = routes[0]?.id ?? '';
+    const [picked, setPicked] = useState<PickedStudent | null>(null);
     const form = useForm({ student: '', route_id: String(first), stop_id: '', vehicle_id: '' });
     const [q, setQ] = useState(filters.search);
     const routeStops = stops.filter((s) => String(s.route_id) === form.data.route_id);
@@ -45,7 +47,13 @@ export default function WhoRides({
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        form.post('/app/transport/riders', { preserveScroll: true, onSuccess: () => form.reset('student', 'stop_id') });
+        form.post('/app/transport/riders', {
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset('student', 'stop_id');
+                setPicked(null);
+            },
+        });
     };
 
     return (
@@ -71,9 +79,15 @@ export default function WhoRides({
                 <Card className="space-y-4">
                     <h2 className="font-semibold">{t('Add or move a student')}</h2>
                     <div className="grid gap-4 md:grid-cols-4">
-                        <Field label="Admission no. or username" error={form.errors.student}>
-                            <input className={inputCls} value={form.data.student} onChange={(e) => form.setData('student', e.target.value)} />
-                        </Field>
+                        <StudentSelect
+                            label="Student"
+                            value={picked}
+                            error={form.errors.student}
+                            onChange={(s) => {
+                                setPicked(s);
+                                form.setData('student', s?.admission_no ?? '');
+                            }}
+                        />
                         <Field label="Route" error={form.errors.route_id}>
                             <select
                                 className={inputCls}

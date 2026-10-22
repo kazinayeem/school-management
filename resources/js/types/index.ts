@@ -21,7 +21,7 @@ export interface NavItem {
     isActive?: boolean;
 }
 
-export type BrandingRole = 'admin' | 'staff' | 'student' | 'parent';
+export type BrandingRole = 'admin' | 'teacher' | 'staff' | 'student' | 'parent';
 
 export interface DemoAccount {
     username: string;
@@ -63,7 +63,7 @@ export interface User {
     name: string;
     email: string;
     avatar?: string;
-    role: 'admin' | 'staff' | 'student' | 'parent';
+    role: 'admin' | 'teacher' | 'staff' | 'student' | 'parent';
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;

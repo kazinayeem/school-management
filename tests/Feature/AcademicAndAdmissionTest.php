@@ -172,7 +172,7 @@ class AcademicAndAdmissionTest extends TestCase
 
     public function test_these_pages_are_admin_only(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'staff']));
+        $this->actingAs(User::factory()->create(['role' => 'teacher']));
 
         foreach (['/app/academic/groups', '/app/students/import', '/app/students/promotion', '/app/admissions', '/app/admissions/settings'] as $path) {
             $this->get($path)->assertForbidden();

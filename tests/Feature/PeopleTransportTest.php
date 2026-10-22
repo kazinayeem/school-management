@@ -37,10 +37,10 @@ class PeopleTransportTest extends TestCase
         $this->admin();
 
         $this->post('/app/staff', ['name' => 'New Teacher', 'password' => 'short'])->assertSessionHasErrors('password');
-        $this->post('/app/staff', ['name' => 'New Teacher', 'password' => 'Secret123', 'designation' => 'Math Teacher', 'phone' => '01700000001', 'joined_on' => '2026-01-05'])->assertRedirect('/app/staff');
+        $this->post('/app/staff', ['name' => 'New Teacher', 'role' => 'teacher', 'password' => 'Secret123', 'designation' => 'Math Teacher', 'phone' => '01700000001', 'joined_on' => '2026-01-05'])->assertRedirect('/app/staff');
 
         $user = User::where('name', 'New Teacher')->first();
-        $this->assertSame(['staff', 'new.teacher', 'new.teacher@borno.test', true], [$user->role, $user->username, $user->email, $user->is_active]);
+        $this->assertSame(['teacher', 'new.teacher', 'new.teacher@borno.test', true], [$user->role, $user->username, $user->email, $user->is_active]);
         $this->assertMatchesRegularExpression('/^EMP-\d{4}$/', (string) DB::table('staff_profiles')->where('user_id', $user->id)->value('employee_no'));
 
         $this->post('/app/staff', ['name' => 'Other', 'username' => 'new.teacher', 'password' => 'Secret123'])->assertSessionHasErrors('username');
@@ -63,11 +63,11 @@ class PeopleTransportTest extends TestCase
     public function test_inactive_accounts_cannot_sign_in_or_stay_signed_in(): void
     {
         $admin = $this->admin();
-        $teacher = User::factory()->create(['role' => 'staff', 'username' => 'tina', 'password' => 'Secret123']);
+        $teacher = User::factory()->create(['role' => 'teacher', 'username' => 'tina', 'password' => 'Secret123']);
 
         $this->put("/app/staff/{$teacher->id}/status");
         $this->post('/logout');
-        $this->post('/login', ['login' => 'tina', 'password' => 'Secret123', 'role' => 'staff'])->assertSessionHasErrors('login');
+        $this->post('/login', ['login' => 'tina', 'password' => 'Secret123', 'role' => 'teacher'])->assertSessionHasErrors('login');
         $this->assertGuest();
 
         $teacher->update(['is_active' => true]);
@@ -120,7 +120,7 @@ class PeopleTransportTest extends TestCase
     public function test_user_accounts_filter_reset_passwords_and_add_admins(): void
     {
         $this->admin();
-        $staff = User::factory()->create(['role' => 'staff', 'username' => 'sam', 'password' => 'OldPass123']);
+        $staff = User::factory()->create(['role' => 'teacher', 'username' => 'sam', 'password' => 'OldPass123']);
 
         $this->get('/app/system/users?role=staff&search=sam')->assertInertia(fn (Assert $p) => $p->has('rows', 1)->where('rows.0.username', 'sam')->where('counts.admin', 1));
 
@@ -272,7 +272,7 @@ class PeopleTransportTest extends TestCase
 
     public function test_all_of_these_pages_are_admin_only(): void
     {
-        $staff = User::factory()->create(['role' => 'staff']);
+        $staff = User::factory()->create(['role' => 'teacher']);
         $this->actingAs($staff);
 
         foreach (['/app/staff', '/app/staff/new', "/app/staff/{$staff->id}", '/app/system/parents', '/app/system/users', '/app/students/roll-numbers', '/app/students/id-cards', '/app/transport', '/app/transport/manifest', '/app/transport/routes', '/app/transport/vehicles'] as $path) {

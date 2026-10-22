@@ -2,7 +2,8 @@ import { Badge, Card, Field, ghostBtn, inputCls, Nav, OfficePage, primaryBtn, Ta
 import { useI18n } from '@/lib/i18n';
 import { router, useForm } from '@inertiajs/react';
 import { KeyRound, Power } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { ExportMenu, HeaderCheckbox, Pagination, RowCheckbox, SelectionBanner, useBulkSelection, useListNav, useNavigating, type PaginationMeta } from '@/components/list-kit';
 
 type Row = { id: number; name: string; username: string; email: string; role: string; is_active: number };
 
@@ -92,19 +93,36 @@ export default function Users({
     counts,
     filters,
     me,
+    pagination,
+    exportColumns,
 }: {
     navigation: Nav;
     roleLabel: string;
     rows: Row[];
     counts: Record<string, number>;
-    filters: { search: string; role: string; status: string };
+    filters: { search: string; role: string; status: string; limit: number; sort: string; dir: string };
     me: number;
+    pagination: PaginationMeta;
+    exportColumns: Record<string, string>;
 }) {
     const { t } = useI18n();
     const [q, setQ] = useState(filters.search);
     const [resetting, setResetting] = useState<Row | null>(null);
     const [adding, setAdding] = useState(false);
-    const go = (next: Record<string, string>) => router.get('/app/system/users', { ...filters, ...next }, { preserveState: true, replace: true });
+    const go = useListNav(filters);
+    const busy = useNavigating();
+    const sel = useBulkSelection(rows.map((r) => r.id), pagination.total, `${filters.search}|${filters.role}|${filters.status}`);
+    const first = useRef(true);
+    useEffect(() => {
+        if (first.current) {
+            first.current = false;
+
+            return;
+        }
+        const id = setTimeout(() => q !== filters.search && go({ search: q }), 350);
+
+        return () => clearTimeout(id);
+    }, [q]);
     const roleName = (r: string) =>
         t(r === 'admin' ? 'Admin' : r === 'teacher' ? 'Teacher' : r === 'staff' ? 'Staff' : r === 'student' ? 'Student' : 'Parent');
 
@@ -148,17 +166,24 @@ export default function Users({
                     <option value="active">{t('Active')}</option>
                     <option value="inactive">{t('Inactive')}</option>
                 </select>
-                <button onClick={() => setAdding(true)} className={`${primaryBtn} ms-auto`}>
-                    {t('Add administrator')}
-                </button>
+                <span className="ms-auto flex gap-2">
+                    <ExportMenu dataset="users" columns={exportColumns} params={{ ...filters }} sel={sel} total={pagination.total} noun="accounts" />
+                    <button onClick={() => setAdding(true)} className={primaryBtn}>
+                        {t('Add administrator')}
+                    </button>
+                </span>
             </div>
+            <SelectionBanner sel={sel} pageCount={rows.length} total={pagination.total} noun="accounts" />
 
             {adding && <AdminForm onDone={() => setAdding(false)} />}
             {resetting && <PasswordForm key={resetting.id} user={resetting} onDone={() => setResetting(null)} />}
 
-            <Table headers={['Name', 'Username', 'Email', 'Role', 'Status', '']} empty={rows.length === 0 ? 'No users found.' : null}>
+            <Table busy={busy} headers={[<HeaderCheckbox key="all" sel={sel} label={t('Select all on this page')} />, 'Name', 'Username', 'Email', 'Role', 'Status', '']} empty={rows.length === 0 ? 'No users found.' : null}>
                 {rows.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50">
+                    <tr key={u.id} className={`hover:bg-slate-50 ${sel.isSelected(u.id) ? 'bg-fuchsia-50/50' : ''}`}>
+                        <td className="px-4 py-3">
+                            <RowCheckbox sel={sel} id={u.id} label={`${t('Select')} ${u.name}`} />
+                        </td>
                         <td className="px-4 py-3 font-medium">{u.name}</td>
                         <td className="px-4 py-3">{u.username}</td>
                         <td className="px-4 py-3">{u.email}</td>
@@ -187,6 +212,7 @@ export default function Users({
                     </tr>
                 ))}
             </Table>
+            <Pagination meta={pagination} label="accounts" onPage={(page) => go({ page })} onLimit={(limit) => go({ limit, page: 1 })} />
         </OfficePage>
     );
 }

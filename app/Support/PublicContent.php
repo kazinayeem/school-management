@@ -4,6 +4,80 @@ namespace App\Support;
 
 class PublicContent
 {
+    /** The school's contact details and wording, as set under Website → Site Settings. */
+    public static function site(): array
+    {
+        $get = fn (string $k, string $d) => \App\Support\SiteSettings::get($k, $d) ?: $d;
+
+        return [
+            'name' => $get('school_name', config('app.name')),
+            'tagline' => $get('tagline', 'Nurturing minds, building future leaders'),
+            'phone' => $get('phone', '+880 1711-000000'),
+            'email' => $get('email', 'office@borno.edu.bd'),
+            'address' => $get('address', 'House 12, Road 5, Dhanmondi, Dhaka 1205'),
+            'facebook' => \App\Support\SiteSettings::get('facebook_url', ''),
+            'footer' => $get('footer_text', 'Education that builds character, not just results.'),
+            'admission_open' => \App\Support\SiteSettings::get('admission_open', '1') !== '0',
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function banners(): array
+    {
+        $rows = \Illuminate\Support\Facades\DB::table('hero_banners')->where('active', true)->orderBy('sort_order')->limit(5)->get();
+        if ($rows->isEmpty()) {
+            return [['eyebrow' => 'ADMISSIONS OPEN', 'title' => 'Nurturing minds, building future leaders', 'subtitle' => 'A holistic learning environment where academic excellence meets character development.', 'image' => '/images/site/hero-campus.svg', 'label' => 'Apply for admission', 'url' => '/admission']];
+        }
+
+        return $rows->map(fn ($r) => ['eyebrow' => $r->eyebrow, 'title' => $r->title, 'subtitle' => $r->subtitle, 'image' => $r->image_url ?: '/images/site/hero-campus.svg', 'label' => $r->button_label, 'url' => $r->button_url ?: '/admission'])->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function gallery(?int $limit = null): array
+    {
+        $rows = \Illuminate\Support\Facades\DB::table('gallery_items')->whereNotNull('image_url')->where('image_url', '!=', '')->orderBy('sort_order')->orderBy('id')->when($limit, fn ($q) => $q->limit($limit))->get();
+
+        return $rows->map(fn ($r) => ['id' => $r->id, 'title' => $r->title, 'album' => $r->album, 'caption' => $r->caption, 'image' => $r->image_url])->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function testimonials(): array
+    {
+        $rows = \Illuminate\Support\Facades\DB::table('testimonials')->where('published', true)->orderByDesc('id')->limit(6)->get();
+
+        return $rows->map(fn ($r) => ['name' => $r->name, 'role' => $r->role, 'quote' => $r->quote, 'rating' => (int) ($r->rating ?: 5)])->all();
+    }
+
+    /** Monthly tuition and admission fee for each class, straight from the fee structure. @return list<array<string, mixed>> */
+    public static function fees(): array
+    {
+        $db = \Illuminate\Support\Facades\DB::table('fee_heads')->where('active', true)->whereNotNull('class_name')->whereIn('category', ['tuition', 'admission'])->get()->groupBy('class_name');
+        $out = [];
+        foreach ($db as $class => $heads) {
+            $out[] = ['class' => $class, 'tuition' => (int) ($heads->firstWhere('category', 'tuition')->amount ?? 0), 'admission' => (int) ($heads->firstWhere('category', 'admission')->amount ?? 0)];
+        }
+        usort($out, fn ($a, $b) => (int) substr($a['class'], 6) <=> (int) substr($b['class'], 6));
+
+        return $out;
+    }
+
+    /** @return list<array{value: string, label: string}> */
+    public static function stats(): array
+    {
+        $db = fn (string $t) => \Illuminate\Support\Facades\DB::table($t);
+        $students = $db('student_profiles')->where('status', 'active')->count();
+        $teachers = $db('users')->where('role', 'teacher')->where('is_active', 1)->count();
+        $classes = $db('academic_classes')->count();
+        $books = (int) $db('library_books')->sum('copies');
+
+        return array_values(array_filter([
+            $students > 0 ? ['value' => number_format($students).'+', 'label' => 'Students'] : null,
+            $teachers > 0 ? ['value' => (string) $teachers, 'label' => 'Teachers'] : null,
+            $classes > 0 ? ['value' => (string) $classes, 'label' => 'Classes, 1 to '.$classes] : null,
+            $books > 0 ? ['value' => number_format($books), 'label' => 'Library books'] : null,
+        ]));
+    }
+
     public static function teachers(): array
     {
         $rows = \Illuminate\Support\Facades\DB::table('users')

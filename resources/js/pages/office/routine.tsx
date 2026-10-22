@@ -1,3 +1,4 @@
+import { StudentSelect } from '@/components/student-picker';
 import { Card, inputCls, Nav, OfficePage, primaryBtn } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
 import { router, useForm } from '@inertiajs/react';
@@ -15,6 +16,7 @@ type Props = {
     teachers: string[];
     subjects?: string[];
     filters: { class?: string; section?: string; teacher?: string };
+    student?: { id: number; name: string; photo: string | null; class_name: string; section: string; roll_no: string } | null;
     days: string[];
     periods: Period[];
     cells: Record<string, Cell>;
@@ -179,7 +181,7 @@ export default function Routine(props: Props) {
         >
             <Card className="flex flex-wrap items-end gap-4">
                 {teacherMode ? (
-                    props.roleLabel !== 'Teacher' ? (
+                    props.teachers.length > 0 ? (
                         <div>
                             <label className="mb-1 block text-xs font-medium text-slate-500">{t('Teacher')}</label>
                             <select className={inputCls} value={filters.teacher} onChange={(e) => go({ teacher: e.target.value })}>
@@ -193,9 +195,17 @@ export default function Routine(props: Props) {
                     )
                 ) : (
                     <>
+                        <div className="w-full md:w-80">
+                            <StudentSelect
+                                label="Find a student's routine"
+                                scope="routine"
+                                value={props.student ? { ...props.student, admission_no: '', parents: 0 } : null}
+                                onChange={(s) => router.get(window.location.pathname, s ? { student: String(s.id) } : {}, { preserveState: false, replace: true })}
+                            />
+                        </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-slate-500">{t('Class')}</label>
-                            <select className={inputCls} value={filters.class} onChange={(e) => go({ class: e.target.value })}>
+                            <select className={inputCls} value={filters.class} onChange={(e) => go({ class: e.target.value, student: '' })}>
                                 {classes.map((c) => (
                                     <option key={c} value={c}>
                                         {t(c)}
@@ -205,7 +215,7 @@ export default function Routine(props: Props) {
                         </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-slate-500">{t('Section')}</label>
-                            <select className={inputCls} value={filters.section} onChange={(e) => go({ section: e.target.value })}>
+                            <select className={inputCls} value={filters.section} onChange={(e) => go({ section: e.target.value, student: '' })}>
                                 <option>A</option>
                                 <option>B</option>
                             </select>

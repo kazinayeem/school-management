@@ -1,4 +1,6 @@
-import { useForm } from '@inertiajs/react';
+import { TableExportMenu } from '@/components/pdf-button';
+import { type PdfTable } from '@/lib/pdf';
+import { router, useForm } from '@inertiajs/react';
 import { CalendarCheck, Download, Eye, FileText, RefreshCw, Search, Trophy, Upload, Wallet } from 'lucide-react';
 import { FormEvent, Fragment, useState } from 'react';
 
@@ -11,6 +13,10 @@ export type Attendance = {
     percent: number | null;
     counts: { present: number; late: number; absent: number; leave: number };
     days: { date: string; day: number; weekday: number; status: string | null }[];
+    from?: string;
+    to?: string;
+    records?: { date: string; weekday: string; status: string }[];
+    student?: string;
 };
 export type HomeworkItem = {
     id: number;
@@ -23,17 +29,23 @@ export type HomeworkItem = {
     instructions: string | null;
     note: string | null;
     remarks: string | null;
+    grade?: string | null;
     submitted_at: string | null;
 };
 export type Results = {
     summary: { exam: string; gpa: string; class_position: number; section_position: number; promotion_status: string } | null;
     subjects: { subject: string; marks: number; full_marks: number; letter_grade: string; failed: boolean }[];
 };
+export type FeeItem = { label: string; category: string; amount: number; discount: number; net: number; note?: string | null; frequency?: string | null };
 export type Fees = {
     total_outstanding: number;
     unpaid_count: number;
     oldest_due_date: string | null;
-    invoices: { invoice_no: string; label: string; due_date: string | null; payable: number; paid: number; outstanding: number; status: string }[];
+    plan?: FeeItem[];
+    pay?: { methods: { method: string; lines: [string, string][] }[]; instructions: string };
+    submissions?: { id: number; invoice_id: number; method: string; reference: string; amount: number; status: string; paid_on: string | null; submitted_on: string; review_note: string | null; proof_url: string | null }[];
+    waivers?: { kind: string; value: number; applies_to: string; type_label: string; reason: string | null }[];
+    invoices: { id?: number; invoice_no: string; label: string; due_date: string | null; payable: number; paid: number; outstanding: number; status: string; items?: FeeItem[] }[];
     payments: { receipt_no: string; date: string; method: string; amount: number; late_fee: number; status: string }[];
 };
 export type Library = {
@@ -140,11 +152,50 @@ export function RoutineBoard({ routine }: { routine: Routine }) {
     );
 }
 
-export function AttendanceBoard({ attendance }: { attendance: Attendance }) {
+export function AttendanceBoard({ attendance, base = '' }: { attendance: Attendance; base?: string }) {
     const blanks = attendance.days[0] ? Array.from({ length: attendance.days[0].weekday }) : [];
+    const [from, setFrom] = useState(attendance.from ?? '');
+    const [to, setTo] = useState(attendance.to ?? '');
+    const records = attendance.records ?? [];
+    const go = (f: string, t: string) => {
+        const params = new URLSearchParams(window.location.search);
+        f ? params.set('from', f) : params.delete('from');
+        t ? params.set('to', t) : params.delete('to');
+        router.get(`${window.location.pathname}?${params.toString()}`, {}, { preserveScroll: true, preserveState: false });
+    };
+    const preset = (months: number) => {
+        const end = new Date();
+        const start = new Date(end.getFullYear(), end.getMonth() - months, 1);
+        const last = months === 0 ? new Date(end.getFullYear(), end.getMonth() + 1, 0) : new Date(end.getFullYear(), end.getMonth(), 0);
+        const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        go(iso(start), iso(months === 0 ? last : last));
+    };
+    const build = (): PdfTable => ({
+        title: 'Attendance report',
+        subtitle: attendance.student,
+        filters: `${attendance.from} to ${attendance.to}`,
+        summary: [
+            { label: 'Present', value: attendance.counts.present }, { label: 'Late', value: attendance.counts.late },
+            { label: 'Absent', value: attendance.counts.absent }, { label: 'Leave', value: attendance.counts.leave },
+            { label: 'Attendance', value: attendance.percent === null ? '—' : `${attendance.percent}%` },
+        ],
+        sections: [{ columns: [{ key: 'date', label: 'Date' }, { key: 'weekday', label: 'Day' }, { key: 'status', label: 'Status' }], rows: records.map((r) => ({ ...r, status: r.status.charAt(0).toUpperCase() + r.status.slice(1) })) }],
+    });
+    const field = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm';
 
     return (
         <div className="space-y-4">
+            <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="text-xs font-medium text-slate-500">From<input type="date" className={`${field} mt-1 block`} value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+                <label className="text-xs font-medium text-slate-500">To<input type="date" className={`${field} mt-1 block`} value={to} onChange={(e) => setTo(e.target.value)} /></label>
+                <button type="button" onClick={() => go(from, to)} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">Apply</button>
+                <div className="flex flex-wrap gap-2 text-xs">
+                    <button type="button" onClick={() => preset(0)} className="rounded-full border border-slate-200 px-3 py-1.5 hover:border-brand">This month</button>
+                    <button type="button" onClick={() => preset(1)} className="rounded-full border border-slate-200 px-3 py-1.5 hover:border-brand">Last month</button>
+                    <button type="button" onClick={() => { const e = new Date(); const s = new Date(e.getFullYear(), e.getMonth() - 2, 1); const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; go(iso(s), iso(e)); }} className="rounded-full border border-slate-200 px-3 py-1.5 hover:border-brand">Last 3 months</button>
+                </div>
+                <div className="ms-auto">{records.length > 0 ? <TableExportMenu build={build} /> : null}</div>
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-800">{attendance.month}</h2>
                 <div className="flex flex-wrap gap-2 text-xs">
@@ -152,24 +203,37 @@ export function AttendanceBoard({ attendance }: { attendance: Attendance }) {
                     <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">{attendance.counts.late} late</span>
                     <span className="rounded-full bg-rose-100 px-2 py-1 text-rose-700">{attendance.counts.absent} absent</span>
                     <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-700">{attendance.counts.leave} leave</span>
-                    {attendance.percent !== null && <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold">{attendance.percent}% this month</span>}
+                    {attendance.percent !== null && <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold">{attendance.percent}% attendance</span>}
                 </div>
             </div>
-            <div className="grid grid-cols-7 gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="text-center text-[11px] font-semibold text-slate-400 uppercase">
-                        {day}
-                    </div>
-                ))}
-                {blanks.map((_, index) => (
-                    <div key={`b${index}`} />
-                ))}
-                {attendance.days.map((day) => (
-                    <div key={day.date} className={`rounded-xl px-1 py-2 text-center text-sm ${day.status ? statusTone[day.status] : 'bg-slate-50 text-slate-400'}`}>
-                        <div className="font-semibold">{day.day}</div>
-                        <div className="text-[10px] capitalize">{day.status ?? '—'}</div>
-                    </div>
-                ))}
+            {attendance.days.length > 0 && (
+                <div className="grid grid-cols-7 gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:gap-2 sm:p-4">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                        <div key={day} className="text-center text-[11px] font-semibold text-slate-400 uppercase">
+                            {day}
+                        </div>
+                    ))}
+                    {blanks.map((_, index) => (
+                        <div key={`b${index}`} />
+                    ))}
+                    {attendance.days.map((day) => (
+                        <div key={day.date} className={`rounded-xl px-0.5 py-2 text-center text-sm ${day.status ? statusTone[day.status] : 'bg-slate-50 text-slate-400'}`}>
+                            <div className="font-semibold">{day.day}</div>
+                            <div className="text-[10px] capitalize">{day.status ?? '—'}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <table className="w-full min-w-[320px] text-sm">
+                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="px-4 py-2 text-start">Date</th><th className="px-4 py-2 text-start">Day</th><th className="px-4 py-2 text-start">Status</th></tr></thead>
+                    <tbody>
+                        {records.map((r) => (
+                            <tr key={r.date} className="border-t border-slate-100"><td className="px-4 py-2">{r.date}</td><td className="px-4 py-2">{r.weekday}</td><td className="px-4 py-2"><span className={`rounded-full px-2 py-0.5 text-xs capitalize ${statusTone[r.status] ?? ''}`}>{r.status}</span></td></tr>
+                        ))}
+                        {records.length === 0 && <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-500">No attendance was recorded in this period.</td></tr>}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
@@ -235,7 +299,7 @@ export function HomeworkBoard({ items, canSubmit }: { items: HomeworkItem[]; can
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
                             placeholder="Search homework..."
-                            className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-[#b31299]"
+                            className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-brand"
                         />
                     </label>
                     <select value={subject} onChange={(event) => setSubject(event.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm">
@@ -324,16 +388,21 @@ export function HomeworkBoard({ items, canSubmit }: { items: HomeworkItem[]; can
                                                     <div className="space-y-2 text-sm">
                                                         {item.instructions && <p className="whitespace-pre-line text-slate-700">{item.instructions}</p>}
                                                         {item.note && <p className="rounded-lg bg-white px-3 py-2 text-slate-600">Your note: {item.note}</p>}
-                                                        {item.remarks && <p className="text-xs text-slate-500">Teacher note: {item.remarks}</p>}
+                                                        {(item.remarks || item.grade) && (
+                                                            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                                                                {item.grade && <strong className="me-2">{item.grade}</strong>}
+                                                                {item.remarks && <span>Teacher feedback: {item.remarks}</span>}
+                                                            </p>
+                                                        )}
                                                         {canSubmit && ['todo', 'overdue', 'submitted'].includes(item.status) && (
                                                             <form onSubmit={submit(item.id)} className="flex flex-col gap-2 sm:flex-row">
                                                                 <input
                                                                     value={form.data.note}
                                                                     onChange={(event) => form.setData('note', event.target.value)}
                                                                     placeholder="Add a note for your teacher"
-                                                                    className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#b31299]"
+                                                                    className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand"
                                                                 />
-                                                                <button className="inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-[#b31299] px-4 text-sm font-semibold text-white hover:bg-[#9a0e84]">
+                                                                <button className="inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark">
                                                                     <Upload className="h-4 w-4" /> {item.status === 'submitted' ? 'Update' : 'Submit'}
                                                                 </button>
                                                             </form>
@@ -374,7 +443,7 @@ export function ResultsBoard({ results }: { results: Results }) {
             </div>
 
             {summary ? (
-                <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#a91093] via-[#b31299] to-[#7c3aed] p-5 text-white shadow-lg shadow-fuchsia-500/20">
+                <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-dark via-brand to-brand-2 p-5 text-white shadow-lg shadow-fuchsia-500/20">
                     <Trophy className="absolute top-5 right-6 h-7 w-7 text-yellow-300" />
                     <p className="text-[11px] font-semibold tracking-[0.16em] text-white/70 uppercase">Annual result</p>
                     <h2 className="mt-1 text-lg font-semibold">Final academic standing</h2>
@@ -441,7 +510,117 @@ function ResultStat({ label, value }: { label: string; value: string }) {
     );
 }
 
+function PayForm({ invoice, methods, onDone }: { invoice: { id?: number; payable: number; paid: number; invoice_no: string }; methods: string[]; onDone: () => void }) {
+    const owed = invoice.payable - invoice.paid;
+    const form = useForm<{ invoice_id: number | string; method: string; reference: string; amount: number | string; paid_on: string; sender_number: string; note: string; proof: File | null }>({
+        invoice_id: invoice.id ?? '', method: methods[0] ?? 'bKash', reference: '', amount: owed, paid_on: new Date().toISOString().slice(0, 10), sender_number: '', note: '', proof: null,
+    });
+    const [fileError, setFileError] = useState('');
+    const pick = (f: File | null) => {
+        setFileError('');
+        if (f && f.size > 5 * 1024 * 1024) return setFileError('That file is larger than 5 MB.');
+        if (f && !/\.(pdf|jpe?g|png|webp)$/i.test(f.name)) return setFileError('Only PDF, JPG, PNG or WebP files can be uploaded.');
+        form.setData('proof', f);
+    };
+    const field = 'mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand';
+    const err = (k: string) => (form.errors as Record<string, string>)[k] && <span className="mt-1 block text-xs text-rose-600">{(form.errors as Record<string, string>)[k]}</span>;
+
+    return (
+        <form
+            onSubmit={(e: FormEvent) => {
+                e.preventDefault();
+                form.post('/payments/submit', { forceFormData: true, preserveScroll: true, onSuccess: onDone });
+            }}
+            className="grid gap-3 rounded-xl border border-fuchsia-200 bg-white p-4 text-sm sm:grid-cols-2 lg:grid-cols-3"
+        >
+            <label className="text-xs font-medium text-slate-600">
+                Paid with
+                <select className={field} value={form.data.method} onChange={(e) => form.setData('method', e.target.value)}>
+                    {methods.map((m) => (
+                        <option key={m}>{m}</option>
+                    ))}
+                </select>
+                {err('method')}
+            </label>
+            <label className="text-xs font-medium text-slate-600">
+                Transaction ID (TrxID / reference)
+                <input className={field} value={form.data.reference} onChange={(e) => form.setData('reference', e.target.value)} />
+                {err('reference')}
+            </label>
+            <label className="text-xs font-medium text-slate-600">
+                Amount paid
+                <input type="number" min={1} max={owed} className={field} value={form.data.amount} onChange={(e) => form.setData('amount', e.target.value)} />
+                {err('amount')}
+            </label>
+            <label className="text-xs font-medium text-slate-600">
+                Date you paid
+                <input type="date" max={new Date().toISOString().slice(0, 10)} className={field} value={form.data.paid_on} onChange={(e) => form.setData('paid_on', e.target.value)} />
+                {err('paid_on')}
+            </label>
+            <label className="text-xs font-medium text-slate-600">
+                Number you paid from (optional)
+                <input className={field} dir="ltr" value={form.data.sender_number} onChange={(e) => form.setData('sender_number', e.target.value)} />
+            </label>
+            <label className="text-xs font-medium text-slate-600">
+                Payment slip or screenshot (optional)
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="mt-1 block w-full text-xs" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
+                {(fileError || (form.errors as Record<string, string>).proof) && <span role="alert" className="mt-1 block text-xs text-rose-600">{fileError || (form.errors as Record<string, string>).proof}</span>}
+            </label>
+            <label className="text-xs font-medium text-slate-600 sm:col-span-2 lg:col-span-3">
+                Note for the school (optional)
+                <input className={field} value={form.data.note} onChange={(e) => form.setData('note', e.target.value)} />
+            </label>
+            {err('invoice_id')}
+            <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
+                <button disabled={form.processing || !!fileError} className="h-10 rounded-lg bg-brand px-4 text-sm font-semibold text-white disabled:opacity-60">
+                    {form.processing ? 'Sending…' : 'Submit payment for approval'}
+                </button>
+                <button type="button" onClick={onDone} className="h-10 rounded-lg border border-slate-200 px-4 text-sm">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    );
+}
+
+const submissionTone: Record<string, string> = { pending: 'bg-amber-50 text-amber-700', success: 'bg-emerald-50 text-emerald-700', failed: 'bg-rose-50 text-rose-700' };
+const submissionLabel: Record<string, string> = { pending: 'Waiting for approval', success: 'Approved', failed: 'Rejected' };
+
+const frequencyLabel: Record<string, string> = { monthly: 'per month', term: 'per term', yearly: 'per year', one_time: 'one time', per_exam: 'per exam' };
+
+function ItemTable({ items }: { items: FeeItem[] }) {
+    const total = items.reduce((n, i) => n + i.net, 0);
+    const off = items.reduce((n, i) => n + i.discount, 0);
+
+    return (
+        <table className="w-full text-sm">
+            <tbody className="divide-y divide-slate-100">
+                {items.map((i, k) => (
+                    <tr key={k}>
+                        <td className="py-2 pe-3">
+                            {i.label}
+                            {i.frequency && <span className="ms-2 text-xs text-slate-400">{frequencyLabel[i.frequency] ?? i.frequency}</span>}
+                            {i.note && <span className="ms-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">{i.note}</span>}
+                        </td>
+                        <td className="py-2 text-right tabular-nums text-slate-400">{i.discount > 0 ? <s>{i.amount.toLocaleString()}</s> : ''}</td>
+                        <td className="py-2 ps-3 text-right font-medium tabular-nums">{i.net.toLocaleString()}</td>
+                    </tr>
+                ))}
+                <tr>
+                    <td className="py-2 font-semibold">Total{off > 0 ? ` (you save ${off.toLocaleString()})` : ''}</td>
+                    <td />
+                    <td className="py-2 ps-3 text-right font-bold tabular-nums">{total.toLocaleString()}</td>
+                </tr>
+            </tbody>
+        </table>
+    );
+}
+
 export function FeesBoard({ fees }: { fees: Fees }) {
+    const [open, setOpen] = useState<string | null>(null);
+    const [paying, setPaying] = useState<number | null>(null);
+    const methods = fees.pay?.methods ?? [];
+
     return (
         <div className="space-y-5">
             <div>
@@ -469,6 +648,70 @@ export function FeesBoard({ fees }: { fees: Fees }) {
                     <p className="mt-1 text-2xl font-bold tabular-nums">{fees.oldest_due_date ?? '—'}</p>
                 </div>
             </div>
+
+            {methods.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h2 className="font-semibold">How to pay</h2>
+                    <p className="mb-3 text-xs text-slate-500">Send the money to one of these accounts, then press "I have paid" on the invoice and enter the transaction ID. The school confirms it here.</p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {methods.map((m) => (
+                            <div key={m.method} className="rounded-xl border border-slate-200 p-4">
+                                <p className="font-semibold text-brand">{m.method}</p>
+                                <dl className="mt-1 space-y-0.5 text-sm">
+                                    {m.lines.map(([k, v]) => (
+                                        <div key={k} className="flex justify-between gap-3">
+                                            <dt className="text-slate-500">{k}</dt>
+                                            <dd className="font-medium" dir="ltr">{v}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                        ))}
+                    </div>
+                    {fees.pay?.instructions && <p className="mt-3 text-sm text-slate-600">{fees.pay.instructions}</p>}
+                </div>
+            )}
+
+            {fees.submissions && fees.submissions.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h2 className="mb-3 font-semibold">Payments you submitted</h2>
+                    <ul className="divide-y divide-slate-100 text-sm">
+                        {fees.submissions.map((s) => (
+                            <li key={s.id} className="flex flex-wrap items-center gap-3 py-2">
+                                <span className="font-medium">{s.method}</span>
+                                <span className="font-mono text-xs text-slate-500">{s.reference}</span>
+                                <span className="tabular-nums">{s.amount.toLocaleString()}</span>
+                                <span className="text-xs text-slate-400">{s.submitted_on}</span>
+                                {s.proof_url && <a href={s.proof_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand">Slip</a>}
+                                <span className={`ms-auto rounded-full px-2.5 py-0.5 text-xs font-medium ${submissionTone[s.status] ?? ''}`}>{submissionLabel[s.status] ?? s.status}</span>
+                                {s.review_note && <span className="w-full text-xs text-slate-500">School: {s.review_note}</span>}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {fees.waivers && fees.waivers.length > 0 && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                    <h2 className="mb-2 font-semibold text-emerald-900">Discounts you receive</h2>
+                    <ul className="space-y-1 text-sm text-emerald-900">
+                        {fees.waivers.map((w, k) => (
+                            <li key={k}>
+                                <strong>{w.kind === 'percent' ? `${w.value}%` : w.value.toLocaleString()}</strong> off {w.applies_to === 'all' ? 'every fee' : `${w.applies_to} fees`} — {w.type_label}
+                                {w.reason ? ` (${w.reason})` : ''}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {fees.plan && fees.plan.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h2 className="mb-1 font-semibold">Fee plan for this class</h2>
+                    <p className="mb-3 text-xs text-slate-500">What the school charges, including any discount or scholarship given to you. Extras such as labs appear only if you joined them.</p>
+                    <ItemTable items={fees.plan} />
+                </div>
+            )}
 
             <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 {fees.invoices.length === 0 ? (
@@ -498,9 +741,31 @@ export function FeesBoard({ fees }: { fees: Fees }) {
                                     <td className={`px-4 py-3 text-right font-semibold tabular-nums ${invoice.outstanding > 0 ? 'text-amber-600' : 'text-slate-700'}`}>{invoice.outstanding.toLocaleString()}</td>
                                     <td className="px-4 py-3 text-center">
                                         <Pill value={invoice.status} />
+                                        {methods.length > 0 && invoice.id && invoice.outstanding > 0 && (
+                                            <button type="button" className="ms-2 text-xs font-semibold text-emerald-700" onClick={() => setPaying(paying === invoice.id ? null : invoice.id!)}>
+                                                I have paid
+                                            </button>
+                                        )}
+                                        {invoice.items && invoice.items.length > 0 && (
+                                            <button type="button" className="ms-2 text-xs font-semibold text-brand" onClick={() => setOpen(open === invoice.invoice_no ? null : invoice.invoice_no)}>
+                                                {open === invoice.invoice_no ? 'Hide' : 'Details'}
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
-                            ))}
+                            )).flatMap((row, idx) => {
+                                const invoice = fees.invoices[idx];
+
+                                const extra = [];
+                                if (open === invoice.invoice_no && invoice.items) {
+                                    extra.push(<tr key={`${invoice.invoice_no}-items`}><td colSpan={6} className="bg-slate-50 px-6 py-3"><ItemTable items={invoice.items} /></td></tr>);
+                                }
+                                if (paying !== null && paying === invoice.id) {
+                                    extra.push(<tr key={`${invoice.invoice_no}-pay`}><td colSpan={6} className="bg-fuchsia-50/40 px-4 py-3"><PayForm invoice={{ id: invoice.id, payable: invoice.payable, paid: invoice.paid, invoice_no: invoice.invoice_no }} methods={methods.map((m) => m.method)} onDone={() => setPaying(null)} /></td></tr>);
+                                }
+
+                                return [row, ...extra];
+                            })}
                         </tbody>
                     </table>
                 )}
@@ -536,9 +801,9 @@ export function FeesBoard({ fees }: { fees: Fees }) {
                                         <Pill value={payment.status} />
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                                        <a href={`/receipts/${payment.receipt_no}/pdf`} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
                                             <Download className="h-3.5 w-3.5" /> PDF
-                                        </button>
+                                        </a>
                                     </td>
                                 </tr>
                             ))}
@@ -772,6 +1037,56 @@ export function CalendarBoard({ calendar }: { calendar: CalendarData }) {
                     ))}
                 </div>
             </div>
+        </div>
+    );
+}
+
+export type AdmitData = {
+    limit: number | null;
+    currency?: string;
+    exams: { id: number; name: string; starts_on: string; ends_on: string; allowed: boolean; due: number; limit: number | null; overridden: boolean; schedule: { subject: string; date: string; time: string; room: string | null }[] }[];
+};
+
+/** Upcoming exams with the timetable and the admit card. A card is held back when dues are above the school's limit. */
+export function AdmitBoard({ admit, child }: { admit: AdmitData; child?: number }) {
+    const cur = admit.currency ?? 'Tk';
+    if (!admit.exams.length) {
+        return <div className="rounded-2xl bg-white p-8 text-center text-sm text-slate-500 shadow-sm">No upcoming exam has a timetable yet. Your admit card will appear here as soon as the school publishes it.</div>;
+    }
+
+    return (
+        <div className="space-y-5">
+            {admit.exams.map((e) => (
+                <section key={e.id} className="rounded-2xl bg-white p-5 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-bold">{e.name}</h2>
+                            <p className="text-sm text-slate-500">{e.starts_on} → {e.ends_on}</p>
+                        </div>
+                        {e.allowed ? (
+                            <a href={`/admit-card/${e.id}.pdf${child ? `?child=${child}` : ''}`} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">Download admit card (PDF)</a>
+                        ) : (
+                            <span className="rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-800">On hold</span>
+                        )}
+                    </div>
+                    {!e.allowed && (
+                        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                            The admit card is held back because unpaid fees are {cur} {e.due.toLocaleString()}{e.limit !== null && <>, above the school's limit of {cur} {e.limit.toLocaleString()}</>}. Please pay the dues, or ask the school office to release it.
+                        </p>
+                    )}
+                    {e.overridden && e.allowed && e.due > 0 && <p className="mt-3 text-xs text-slate-500">The school office has released this card although fees are due.</p>}
+                    <div className="mt-4 overflow-x-auto">
+                        <table className="w-full min-w-[420px] text-sm">
+                            <thead className="text-xs text-slate-500 uppercase"><tr><th className="py-2 text-start">Date</th><th className="text-start">Subject</th><th className="text-start">Time</th><th className="text-start">Room</th></tr></thead>
+                            <tbody>
+                                {e.schedule.map((r, i) => (
+                                    <tr key={i} className="border-t border-slate-100"><td className="py-2">{r.date}</td><td className="font-medium">{r.subject}</td><td>{r.time}</td><td>{r.room ?? '—'}</td></tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            ))}
         </div>
     );
 }

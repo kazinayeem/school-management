@@ -1,3 +1,7 @@
+import { StudentInsights, type StudentCharts } from '@/components/charts/student-insights';
+import { AnimatedPage, Swap } from '@/components/motion';
+import { useUrlTab } from '@/hooks/use-url-tab';
+import { UserFiles, type UserFile } from '@/components/user-files';
 import { useI18n } from '@/lib/i18n';
 import { ProfileForm } from '@/components/portal-profile';
 import { PortalShell } from '@/components/portal-shell';
@@ -11,6 +15,8 @@ import {
     LeaveBoard,
     LibraryBoard,
     ResultsBoard,
+    AdmitBoard,
+    type AdmitData,
     RoutineBoard,
     type Attendance,
     type Bus,
@@ -76,6 +82,8 @@ const titles: Record<string, string> = {
     library: 'Library',
     transport: 'School Bus',
     conduct: 'Conduct',
+    fees: 'Fees',
+    'admit-card': 'Admit Card',
     profile: 'My Profile',
 };
 
@@ -87,13 +95,17 @@ export default function ParentPortal({
     account,
     notices,
     data,
+    files = [],
+    charts,
 }: {
+    charts?: StudentCharts;
     page: string;
     child: number;
     children: Child[];
     profile: Profile;
     account: { name: string; email: string; phone: string | null };
     notices: { title: string; body: string; date: string }[];
+    files?: UserFile[];
     data: { results: Results; fees: Fees } | Routine | Attendance | HomeworkItem[] | Library | Bus | DocumentRow[] | LeaveRow[] | CalendarData | null;
 }) {
     const title = titles[page] ?? 'My children';
@@ -109,7 +121,7 @@ export default function ParentPortal({
                         <Link
                             key={item.id}
                             href={`/parent/${page}?child=${item.id}`}
-                            className={`rounded-xl border px-3 py-2 text-left text-sm ${item.id === child ? 'border-[#b31299] bg-pink-50' : 'border-slate-200 bg-white'}`}
+                            className={`rounded-xl border px-3 py-2 text-left text-sm ${item.id === child ? 'border-brand bg-pink-50' : 'border-slate-200 bg-white'}`}
                         >
                             <span className="block font-medium">{item.name}</span>
                             <span className="block text-xs text-slate-400">
@@ -120,15 +132,25 @@ export default function ParentPortal({
                     ))}
                 </div>
             )}
-            {page === 'home' && <ParentHome account={account} profile={profile} child={selected} children={children} data={data as { results: Results; fees: Fees }} />}
+            {page === 'home' && <ParentHome charts={charts} account={account} profile={profile} child={selected} children={children} data={data as { results: Results; fees: Fees }} />}
             {page === 'routine' && <RoutineBoard routine={data as Routine} />}
             {page === 'calendar' && <CalendarBoard calendar={data as CalendarData} />}
             {page === 'attendance' && <AttendanceBoard attendance={data as Attendance} />}
             {page === 'homework' && <HomeworkBoard items={data as HomeworkItem[]} canSubmit={false} />}
             {page === 'library' && <LibraryBoard library={data as Library} />}
             {page === 'transport' && <BusBoard bus={data as Bus} />}
+            {page === 'admit-card' && <AdmitBoard admit={data as unknown as AdmitData} child={child} />}
+            {page === 'fees' && <FeesBoard fees={data as unknown as Fees} />}
             {page === 'conduct' && <ConductBoard notes={data as unknown as ConductNote[]} />}
-            {page === 'documents' && <DocumentsBoard documents={data as DocumentRow[]} />}
+            {page === 'documents' && (
+                <div className="space-y-6">
+                    <DocumentsBoard documents={data as DocumentRow[]} />
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                        <h2 className="mb-3 font-semibold">Uploaded documents</h2>
+                        <UserFiles files={files} />
+                    </section>
+                </div>
+            )}
             {page === 'leave' && <LeaveBoard leaves={data as LeaveRow[]} action={route('parent.leave.store')} child={child} />}
             {page === 'profile' && (
                 <ProfileForm profile={account} showClass={false} profileAction={route('parent.profile.update')} passwordAction={route('parent.password.update')} />
@@ -143,14 +165,16 @@ function ParentHome({
     child,
     children,
     data,
+    charts,
 }: {
+    charts?: StudentCharts;
     account: { name: string };
     profile: Profile;
     child: Child;
     children: Child[];
     data: { results: Results; fees: Fees };
 }) {
-    const [tab, setTab] = useState<'overview' | 'results' | 'fees'>('overview');
+    const [tab, setTab] = useUrlTab(['overview', 'results', 'fees'] as const, 'view');
     const first = account.name.split(' ')[0];
 
     return (
@@ -166,13 +190,13 @@ function ParentHome({
                         key={item.id}
                         href={`/parent?child=${item.id}`}
                         className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-                            item.id === child.id ? 'border-[#d11ab3] bg-white shadow-sm' : 'border-slate-200 bg-white/70 hover:border-pink-200'
+                            item.id === child.id ? 'border-brand-light bg-white shadow-sm' : 'border-slate-200 bg-white/70 hover:border-pink-200'
                         }`}
                     >
                         {item.photo ? (
                             <img src={item.photo} alt={item.name} className="h-8 w-8 rounded-lg object-cover" />
                         ) : (
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-50 text-xs font-bold text-[#b31299]">{item.name.charAt(0)}</span>
+                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-50 text-xs font-bold text-brand">{item.name.charAt(0)}</span>
                         )}
                         <span className="font-medium text-slate-800">{item.name}</span>
                         <span className="text-xs text-slate-400">{item.class}{item.section ? `-${item.section}` : ''}</span>
@@ -187,7 +211,7 @@ function ParentHome({
                         type="button"
                         onClick={() => setTab(item)}
                         className={`rounded-lg px-4 py-2 text-sm font-medium capitalize transition ${
-                            tab === item ? 'bg-white text-[#b31299] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            tab === item ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-700'
                         }`}
                     >
                         {item}
@@ -196,6 +220,7 @@ function ParentHome({
             </div>
 
             {tab === 'overview' && (
+                <Swap id={child.id} className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <ParentCard
                         icon={CalendarCheck}
@@ -207,7 +232,7 @@ function ParentHome({
                     />
                     <ParentCard
                         icon={GraduationCap}
-                        className="bg-gradient-to-br from-[#c2189b] to-[#df1fa9] text-white"
+                        className="bg-gradient-to-br from-brand-light to-brand-light text-white"
                         iconClass="bg-white/20 text-white"
                         label="Latest GPA"
                         value={profile.latest_result?.gpa ?? '—'}
@@ -230,9 +255,16 @@ function ParentHome({
                         sub={profile.roll_no ? `Roll ${profile.roll_no}` : ''}
                     />
                 </div>
+                <StudentInsights charts={charts} name={child.name} />
+                </Swap>
             )}
 
-            {tab === 'results' && <ResultsBoard results={data.results} />}
+            {tab === 'results' && (
+                <>
+                    <div className="mb-3 flex justify-end"><a href={`/students/${child.id}/transcript.pdf`} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">Download transcript (PDF)</a></div>
+                    <ResultsBoard results={data.results} />
+                </>
+            )}
             {tab === 'fees' && <FeesBoard fees={data.fees} />}
         </div>
     );

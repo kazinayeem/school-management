@@ -5,7 +5,7 @@ import { router } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { useState } from 'react';
 
-type Student = { id: number; name: string; roll_no: string; section: string; admission_no: string; photo?: string | null };
+type Student = { id: number; name: string; roll_no: string; section: string; admission_no: string; photo?: string | null; due?: number; held?: boolean; released?: boolean };
 type Slot = { subject: string; date: string; time: string; room: string | null };
 
 export default function AdmitCards({
@@ -80,13 +80,16 @@ export default function AdmitCards({
                     <label className="mb-1 block text-xs font-medium text-slate-500">{t('Roll')}</label>
                     <input className={`${inputCls} w-24`} value={roll} onChange={(e) => setRoll(e.target.value)} />
                 </form>
-                <button
-                    onClick={() => window.print()}
-                    disabled={students.length === 0 || schedule.length === 0}
-                    className={`${primaryBtn} ms-auto flex items-center gap-2`}
-                >
-                    <Printer className="h-4 w-4" /> {t('Print')}
-                </button>
+                <span className="ms-auto flex gap-2">
+                    {students.length > 0 && schedule.length > 0 && (
+                        <a href={`/app/exams/admit-cards.pdf?exam=${filters.exam}&class=${encodeURIComponent(filters.class)}&section=${filters.section}&roll=${roll}`} className={`${primaryBtn} flex items-center gap-2`}>
+                            {t('Download PDF')}
+                        </a>
+                    )}
+                    <button onClick={() => window.print()} disabled={students.length === 0 || schedule.length === 0} className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50">
+                        <Printer className="h-4 w-4" /> {t('Print')}
+                    </button>
+                </span>
             </Card>
 
             {!exam ? (
@@ -100,7 +103,18 @@ export default function AdmitCards({
             ) : (
                 <div className="grid gap-4 lg:grid-cols-2 print:grid-cols-2">
                     {students.map((s) => (
-                        <article key={s.id} className="print-card rounded-xl border-2 border-slate-300 bg-white p-5 text-sm">
+                        <article key={s.id} className={`print-card rounded-xl border-2 border-slate-300 bg-white p-5 text-sm ${s.held ? 'ring-2 ring-amber-400' : ''}`}>
+                            {s.held !== undefined && (s.held || s.released || (s.due ?? 0) > 0) && (
+                                <div className="no-print mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                    <span>{t('Unpaid fees')}: {(s.due ?? 0).toLocaleString()}{s.held ? ` · ${t('Held in the student portal')}` : s.released ? ` · ${t('Released')}` : ''}</span>
+                                    {(s.held || s.released) && exam && (
+                                        <button type="button" className="ms-auto font-semibold underline" onClick={() => router.post('/app/exams/admit-override', { exam_id: exam.id, user_id: s.id, allow: s.held }, { preserveScroll: true })}>
+                                            {s.held ? t('Release card') : t('Remove release')}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
                             <header className="border-b pb-2 text-center">
                                 <h3 className="font-bold">{school.name}</h3>
                                 <p className="text-xs text-slate-500">{exam.name}</p>

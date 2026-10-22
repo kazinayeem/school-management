@@ -65,11 +65,26 @@ class WebsiteCmsTest extends TestCase
     {
         $this->actingAs($this->admin());
 
-        $this->post('/app/website/pages', ['title' => 'About Us', 'body' => 'x', 'published' => true]);
-        $this->assertSame('about-us', DB::table('website_pages')->value('slug'));
+        $this->post('/app/website/pages', ['title' => 'About Us', 'kind' => 'page', 'body' => 'x', 'published' => true]);
+        $this->assertSame(1, DB::table('website_pages')->where('slug', 'about-us')->count());
 
-        $this->post('/app/website/pages', ['title' => 'Other', 'slug' => 'about-us'])
+        $this->post('/app/website/pages', ['title' => 'Other', 'kind' => 'page', 'slug' => 'about-us'])
             ->assertSessionHasErrors('slug');
+    }
+
+    public function test_policies_are_edited_with_rich_text_and_shown_publicly(): void
+    {
+        $this->actingAs($this->admin());
+        $this->post('/app/website/pages', ['title' => 'Bus policy', 'kind' => 'policy', 'sort_order' => 9, 'body' => '<p>Be <strong>on time</strong>.</p><script>alert(1)</script>', 'published' => true])->assertSessionHasNoErrors();
+        $body = DB::table('website_pages')->where('slug', 'bus-policy')->value('body');
+        $this->assertStringNotContainsString('script', $body);
+
+        $this->post('/logout');
+        $this->get('/policies/bus-policy')->assertOk()->assertInertia(fn ($p) => $p->where('page.html', fn ($h) => str_contains($h, '<strong>on time</strong>'))->where('page.policies', fn ($l) => collect($l)->contains('slug', 'bus-policy')));
+        \App\Support\SitePages::seed();
+        $this->get('/fees')->assertOk()->assertInertia(fn ($p) => $p->where('page.kind', 'fees')->has('page.classes')->where('page.policies', fn ($l) => collect($l)->contains('slug', 'refund-policy')));
+        $this->get('/privacy-policy')->assertOk();
+        $this->get('/policies/nope')->assertNotFound();
     }
 
     public function test_settings_are_saved(): void

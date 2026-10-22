@@ -1,4 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
+import { Rich } from '@/components/comms/rich-html';
 import { FormEvent, ReactNode } from 'react';
 
 const field = 'mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm';
@@ -6,8 +7,14 @@ const field = 'mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm'
 export function PublicPages({ page }: { page: Record<string, any> }) {
     if (page.kind === 'article') {
         return (
-            <Article title={page.title} body={page.body} points={page.points} />
+            <Article title={page.title} body={page.body} points={page.points}>
+                {page.html && <Rich html={page.html} className="mt-6 max-w-3xl rounded-2xl bg-white p-6 shadow-sm" />}
+                {page.policies?.length > 0 && <PolicyLinks policies={page.policies} />}
+            </Article>
         );
+    }
+    if (page.kind === 'fees') {
+        return <Fees page={page} />;
     }
     if (page.kind === 'teachers') {
         return (
@@ -16,7 +23,7 @@ export function PublicPages({ page }: { page: Record<string, any> }) {
                     {page.teachers.map((teacher: { name: string; subject: string; role: string; photo?: string | null }) => (
                         <article key={teacher.name} className="rounded-2xl border border-slate-200 bg-white p-5">
                             {teacher.photo && <img src={teacher.photo} alt={teacher.name} className="mb-3 h-16 w-16 rounded-full object-cover" />}
-                            <p className="text-xs font-semibold text-[#b31299]">{teacher.subject}</p>
+                            <p className="text-xs font-semibold text-brand">{teacher.subject}</p>
                             <h3 className="font-bold">{teacher.name}</h3>
                             <p className="text-sm text-slate-500">{teacher.role}</p>
                         </article>
@@ -28,7 +35,21 @@ export function PublicPages({ page }: { page: Record<string, any> }) {
     if (page.kind === 'gallery') {
         return (
             <Article title="Gallery" body="Sports days, science fairs and the ordinary mornings in between.">
-                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {page.items?.length > 0 && (
+                    <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        {page.items.map((g: { id: number; title: string; album: string | null; caption: string | null; image: string }) => (
+                            <figure key={g.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                <img src={g.image} alt={g.title} loading="lazy" className="aspect-[3/2] w-full object-cover" />
+                                <figcaption className="p-4">
+                                    {g.album && <p className="text-xs font-semibold tracking-wide text-brand uppercase">{g.album}</p>}
+                                    <p className="font-bold">{g.title}</p>
+                                    {g.caption && <p className="mt-1 text-sm text-slate-500">{g.caption}</p>}
+                                </figcaption>
+                            </figure>
+                        ))}
+                    </div>
+                )}
+                <div className={`mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${page.items?.length > 0 ? 'hidden' : ''}`}>
                     {page.albums.map((album: { title: string; tone: string }) => (
                         <div key={album.title} className={`flex h-52 items-end rounded-2xl bg-gradient-to-br ${album.tone} p-5 font-bold text-white`}>
                             {album.title}
@@ -44,7 +65,7 @@ export function PublicPages({ page }: { page: Record<string, any> }) {
                 <div className="mt-8 space-y-3">
                     {page.notices.map((notice: { id: number; day: string; month: string; title: string; body: string }) => (
                         <Link key={notice.id} href={`/notices/${notice.id}`} className="block rounded-2xl border border-slate-200 bg-white p-5">
-                            <p className="text-xs font-bold text-[#b31299]">{notice.day} {notice.month}</p>
+                            <p className="text-xs font-bold text-brand">{notice.day} {notice.month}</p>
                             <h3 className="mt-1 font-bold">{notice.title}</h3>
                             <p className="mt-2 line-clamp-2 text-sm text-slate-600">{notice.body}</p>
                         </Link>
@@ -62,7 +83,7 @@ export function PublicPages({ page }: { page: Record<string, any> }) {
                 <div className="mt-8 space-y-3">
                     {page.events.map((event: { slug: string; date: string; title: string; place: string }) => (
                         <Link key={event.slug} href={`/events/${event.slug}`} className="block rounded-2xl border border-slate-200 bg-white p-5">
-                            <p className="text-xs font-bold text-[#b31299]">{event.date}</p>
+                            <p className="text-xs font-bold text-brand">{event.date}</p>
                             <h3 className="font-bold">{event.title}</h3>
                             <p className="text-sm text-slate-500">{event.place}</p>
                         </Link>
@@ -92,7 +113,7 @@ function Article({ title, body, points, meta, children }: { title: string; body:
         <div className="mx-auto max-w-6xl px-4 py-12">
             <p className="text-sm text-slate-400">Home / {title}</p>
             <h1 className="mt-2 text-4xl font-extrabold">{title}</h1>
-            {meta && <p className="mt-2 text-sm text-[#b31299]">{meta}</p>}
+            {meta && <p className="mt-2 text-sm text-brand">{meta}</p>}
             <p className="mt-4 max-w-3xl text-lg text-slate-600">{body}</p>
             {points && (
                 <ul className="mt-6 space-y-2">
@@ -129,7 +150,7 @@ function Contact({ sent }: { sent: boolean }) {
                     <label className="block text-sm">Email<input aria-label="Email" type="email" value={form.data.email} onChange={(event) => form.setData('email', event.target.value)} className={field} /></label>
                     <label className="block text-sm">Phone<input aria-label="Phone" value={form.data.phone} onChange={(event) => form.setData('phone', event.target.value)} className={field} /></label>
                     <label className="block text-sm">Message<textarea aria-label="Message" value={form.data.message} onChange={(event) => form.setData('message', event.target.value)} className={field} rows={4} /></label>
-                    <button disabled={form.processing} className="rounded-[10px] bg-[#b31299] px-4 py-2 text-sm font-semibold text-white">Send message</button>
+                    <button disabled={form.processing} className="rounded-[10px] bg-brand px-4 py-2 text-sm font-semibold text-white">Send message</button>
                 </form>
             </div>
         </Article>
@@ -223,7 +244,7 @@ function Admission({ tracking, status }: { tracking?: string; status?: { found: 
                     <label className="text-sm">Occupation<input aria-label="Occupation" value={apply.data.occupation} onChange={(event) => apply.setData('occupation', event.target.value)} className={field} /></label>
                 </section>
                 <p className="text-sm text-slate-500">You will receive a tracking number — keep it, along with this mobile number.</p>
-                <button disabled={apply.processing} className="rounded-[10px] bg-[#b31299] px-4 py-2 text-sm font-semibold text-white">Submit application</button>
+                <button disabled={apply.processing} className="rounded-[10px] bg-brand px-4 py-2 text-sm font-semibold text-white">Submit application</button>
             </form>
 
             <form
@@ -243,7 +264,7 @@ function Admission({ tracking, status }: { tracking?: string; status?: { found: 
                 )}
                 <label className="block text-sm">Tracking number *<input aria-label="Tracking number" value={track.data.tracking_no} onChange={(event) => track.setData('tracking_no', event.target.value)} className={field} /></label>
                 <label className="block text-sm">Guardian mobile *<input aria-label="Guardian mobile" value={track.data.mobile} onChange={(event) => track.setData('mobile', event.target.value)} className={field} /></label>
-                <button className="rounded-[10px] border border-[#b31299] px-4 py-2 text-sm font-semibold text-[#b31299]">Check status</button>
+                <button className="rounded-[10px] border border-brand px-4 py-2 text-sm font-semibold text-brand">Check status</button>
             </form>
         </div>
     );
@@ -273,7 +294,7 @@ function Results({ page }: { page: Record<string, any> }) {
                 <label className="text-sm">Roll number
                     <input aria-label="Roll number" value={form.data.roll} onChange={(event) => form.setData('roll', event.target.value)} className={field} />
                 </label>
-                <button className="w-fit rounded-[10px] bg-[#b31299] px-4 py-2 text-sm font-semibold text-white">Check result</button>
+                <button className="w-fit rounded-[10px] bg-brand px-4 py-2 text-sm font-semibold text-white">Check result</button>
             </form>
             {page.result && (
                 <div className="mt-6 max-w-xl rounded-2xl bg-white p-5 shadow-sm">
@@ -306,5 +327,87 @@ function Results({ page }: { page: Record<string, any> }) {
                 </div>
             )}
         </Article>
+    );
+}
+
+function PolicyLinks({ policies }: { policies: { slug: string; title: string }[] }) {
+    return (
+        <div className="mt-8 max-w-3xl">
+            <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">Fees &amp; policies</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+                <Link href="/fees" className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm hover:border-brand hover:text-brand">Fee schedule</Link>
+                {policies.map((p) => (
+                    <Link key={p.slug} href={`/policies/${p.slug}`} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm hover:border-brand hover:text-brand">{p.title}</Link>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+const taka = (n: number) => `৳${n.toLocaleString('en-US')}`;
+
+function Fees({ page }: { page: Record<string, any> }) {
+    const pay = page.pay ?? {};
+    const methods = [
+        pay.pay_bkash_number && ['bKash', `${pay.pay_bkash_number} (${pay.pay_bkash_type ?? ''})`],
+        pay.pay_nagad_number && ['Nagad', `${pay.pay_nagad_number} (${pay.pay_nagad_type ?? ''})`],
+        pay.pay_bank_account_number && ['Bank', `${pay.pay_bank_name ?? ''} ${pay.pay_bank_branch ?? ''} · ${pay.pay_bank_account_name ?? ''} · ${pay.pay_bank_account_number}`],
+    ].filter(Boolean) as string[][];
+
+    return (
+        <div className="mx-auto max-w-6xl px-4 py-12">
+            <p className="text-sm text-slate-400">Home / Fees &amp; policies</p>
+            <h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Fees &amp; policies</h1>
+            <p className="mt-3 max-w-3xl text-slate-600">What each class pays, how to pay, and the rules around late payment, refunds and waivers.</p>
+
+            <h2 className="mt-10 text-xl font-bold">Fee schedule by class</h2>
+            <div className="mt-4 overflow-x-auto rounded-2xl bg-white shadow-sm">
+                <table className="w-full min-w-[420px] text-sm">
+                    <thead className="bg-slate-50 text-start text-xs text-slate-500 uppercase">
+                        <tr><th className="px-4 py-3 text-start">Class</th><th className="px-4 py-3 text-end">Monthly tuition</th><th className="px-4 py-3 text-end">Admission fee</th></tr>
+                    </thead>
+                    <tbody>
+                        {page.classes.map((c: any) => (
+                            <tr key={c.class} className="border-t border-slate-100"><td className="px-4 py-3 font-medium">{c.class}</td><td className="px-4 py-3 text-end">{taka(c.tuition)}</td><td className="px-4 py-3 text-end">{taka(c.admission)}</td></tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {page.extras.length > 0 && (
+                <>
+                    <h2 className="mt-10 text-xl font-bold">Other charges</h2>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {page.extras.map((e: any, i: number) => (
+                            <div key={i} className="rounded-xl bg-white p-4 shadow-sm">
+                                <p className="font-medium">{e.name}</p>
+                                <p className="mt-1 text-lg font-bold text-brand">{taka(e.amount)}</p>
+                                <p className="text-xs text-slate-500">{[e.class ?? 'All classes', e.frequency?.replace('_', ' ')].filter(Boolean).join(' · ')}</p>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {methods.length > 0 && (
+                <>
+                    <h2 className="mt-10 text-xl font-bold">How to pay</h2>
+                    <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm">
+                        <ul className="space-y-2 text-sm">{methods.map(([n, d]) => <li key={n}><strong>{n}:</strong> <span dir="ltr">{d}</span></li>)}</ul>
+                        {pay.instructions && <p className="mt-3 text-sm text-slate-600">{pay.instructions}</p>}
+                    </div>
+                </>
+            )}
+
+            <h2 className="mt-10 text-xl font-bold">Policies</h2>
+            <div className="mt-4 space-y-4">
+                {page.policies.map((p: any) => (
+                    <details key={p.slug} className="group rounded-2xl bg-white p-5 shadow-sm" open={['fee-payment-policy'].includes(p.slug)}>
+                        <summary className="cursor-pointer text-base font-semibold">{p.title}</summary>
+                        <Rich html={p.html} className="mt-3" />
+                    </details>
+                ))}
+            </div>
+        </div>
     );
 }

@@ -1,5 +1,6 @@
+import { MadeBy } from '@/components/made-by';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { Check, ChevronRight, Copy, Eye, EyeOff, GraduationCap, Languages as LanguagesIcon, Lock, ShieldCheck, User, Users, X, BookOpen } from 'lucide-react';
+import { BookOpen, Check, ChevronRight, Copy, Eye, EyeOff, GraduationCap, Languages as LanguagesIcon, Lock, ShieldCheck, User, Users, X } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 import { ThemeToggle } from '@/components/preferences';
@@ -26,7 +27,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
     const { data, setData, post, processing, errors, reset } = useForm({
         login: '',
         password: '',
-        role: 'admin' as Role,
+        role: ((): Role => { const r = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') : null; return roles.some((x) => x.value === r) ? (r as Role) : 'admin'; })(),
         remember: false as boolean,
     });
 
@@ -67,440 +68,126 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
     const activeLanguage = branding.languages.find((language) => language.code === locale) ?? branding.languages[0];
 
+    const input = 'h-12 w-full rounded-xl border border-slate-200 bg-white ps-11 pe-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/20';
+
     return (
-        <div
-            className="themed login-bg flex min-h-screen items-center justify-center p-4 md:p-8"
-        >
+        <div className="themed flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-brand-soft via-slate-50 to-slate-50 p-4 md:p-8">
             <Head title="Log in" />
 
-            <div
-                className="relative grid w-full max-w-[1140px] grid-cols-1 overflow-hidden rounded-[28px] border border-indigo-600/10 bg-white antialiased lg:grid-cols-[540px_1fr]"
-                style={{
-                    minHeight: '630px',
-                    boxShadow: '0 25px 60px rgba(15,23,42,.10), 0 10px 30px color-mix(in srgb, var(--color-indigo-600) 8%, transparent)',
-                }}
-            >
-                <div className="flex flex-col justify-center overflow-y-auto bg-gradient-to-br from-white to-[#fbfbff] px-6 py-8 md:px-0 md:py-[38px]">
-                    <div className="mx-auto w-full md:w-[min(460px,calc(100%-64px))]">
-                        <div className="mb-[42px] flex items-center gap-2.5">
-                            {!logoFailed ? (
-                                <img
-                                    src={branding.logo}
-                                    alt={`${branding.name} logo`}
-                                    className="h-[42px] w-auto max-w-[240px] shrink-0 object-contain object-left"
-                                    onError={() => setLogoFailed(true)}
-                                />
-                            ) : (
+            <div className="w-full max-w-[480px] rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-9">
+                <div className="mb-8 flex items-center gap-2.5">
+                    <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label={branding.name}>
+                        {!logoFailed ? (
+                            <>
+                                <img src={branding.logo} alt={`${branding.name} logo`} className="h-10 w-auto max-w-[180px] shrink-0 object-contain object-left dark:hidden" onError={() => setLogoFailed(true)} />
+                                <img src={branding.logoWhite} alt="" aria-hidden className="hidden h-10 w-auto max-w-[180px] shrink-0 object-contain object-left dark:block" />
+                            </>
+                        ) : (
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white"><GraduationCap className="h-5 w-5" /></span>
+                        )}
+                        <span className="truncate text-lg font-extrabold text-brand" title={branding.name}>{branding.name}</span>
+                    </Link>
+                    <div className="ms-auto flex shrink-0 items-center gap-2">
+                        <ThemeToggle />
+                        <div className="relative">
+                            <button type="button" aria-label="Change language" onClick={() => setLanguageOpen((open) => !open)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                                <LanguagesIcon className="h-4 w-4 shrink-0 text-brand" />
+                                <span className="hidden sm:inline">{activeLanguage?.flag} {activeLanguage?.name ?? locale.toUpperCase()}</span>
+                                <span className="sm:hidden">{activeLanguage?.flag ?? locale.toUpperCase()}</span>
+                            </button>
+                            {languageOpen && (
                                 <>
-                                    <div
-                                        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center overflow-hidden rounded-xl"
-                                        style={{
-                                            background: 'linear-gradient(135deg, var(--color-indigo-600), var(--color-indigo-500))',
-                                            boxShadow: '0 8px 20px color-mix(in srgb, var(--color-indigo-600) 30%, transparent)',
-                                        }}
-                                    >
-                                        <GraduationCap className="h-[23px] w-[23px] text-white" strokeWidth={1.8} />
+                                    <div className="fixed inset-0 z-40" onClick={() => setLanguageOpen(false)} />
+                                    <div className="absolute end-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                                        {branding.languages.map((language) => (
+                                            <button key={language.code} type="button" onClick={() => chooseLanguage(language)} className={`flex w-full items-center gap-2 px-3 py-2 text-start text-sm hover:bg-slate-50 ${language.code === locale ? 'font-semibold text-brand' : 'text-slate-600'}`}>
+                                                <span>{language.flag}</span>
+                                                <span className="flex-1">{language.name}</span>
+                                                {language.code === locale && <Check className="h-3.5 w-3.5 text-brand" />}
+                                            </button>
+                                        ))}
                                     </div>
-                                    <span
-                                        className="max-w-[230px] min-w-0 truncate text-[21px] font-extrabold"
-                                        style={{ color: 'var(--color-indigo-600)' }}
-                                        title={branding.name}
-                                    >
-                                        {branding.name || 'School Management System'}
-                                    </span>
                                 </>
                             )}
-
-                            <span
-                                className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-medium"
-                                style={{ background: 'var(--color-indigo-50)', color: 'var(--color-indigo-600)' }}
-                            >
-                                {t('Demo')}
-                            </span>
-
-                            <div className="ms-auto flex shrink-0 items-center gap-2">
-                                <ThemeToggle />
-                                <div className="relative">
-                                    <button
-                                        type="button"
-                                        aria-label="Change language"
-                                        onClick={() => setLanguageOpen((open) => !open)}
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                                    >
-                                        <LanguagesIcon className="h-4 w-4 shrink-0 text-indigo-600" />
-                                        <span className="sm:hidden">{activeLanguage?.flag ?? locale.toUpperCase()}</span>
-                                        <span className="hidden sm:inline">
-                                            {activeLanguage?.flag} {activeLanguage?.name ?? locale.toUpperCase()}
-                                        </span>
-                                        <ChevronRight className="hidden h-3 w-3 shrink-0 text-slate-400 sm:block" />
-                                    </button>
-
-                                    {languageOpen && (
-                                        <>
-                                            <div className="fixed inset-0 z-40" onClick={() => setLanguageOpen(false)} />
-                                            <div className="absolute end-0 top-full z-50 mt-1 w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                                                {branding.languages.map((language) => (
-                                                    <button
-                                                        key={language.code}
-                                                        type="button"
-                                                        onClick={() => chooseLanguage(language)}
-                                                        className={`flex w-full items-center gap-2 px-3 py-2 text-start text-sm hover:bg-slate-50 ${
-                                                            language.code === locale ? 'font-semibold text-indigo-700' : 'text-slate-600'
-                                                        }`}
-                                                    >
-                                                        <span>{language.flag}</span>
-                                                        <span className="flex-1">{language.name}</span>
-                                                        {language.code === locale && <Check className="h-3.5 w-3.5 text-indigo-600" />}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
                         </div>
+                    </div>
+                </div>
 
-                        <div className="mb-[22px]" />
+                <h1 className="text-2xl font-extrabold text-slate-900">{t('Login')}</h1>
+                <p className="mt-1 text-sm text-slate-500">{t('Sign in to continue')}</p>
 
-                        <form className="space-y-3.5" onSubmit={submit}>
-                            <div className="mb-[4px]">
-                                <p
-                                    className="mb-3 text-center text-[11px] font-bold tracking-[0.08em] uppercase"
-                                    style={{ color: 'var(--color-indigo-600)' }}
-                                >
-                                    {t('Select Your Role')}
-                                </p>
-                                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-                                    {roles.map(({ value, label, icon: Icon }) => {
-                                        const active = data.role === value;
+                <form className="mt-6 space-y-4" onSubmit={submit}>
+                    <fieldset>
+                        <legend className="mb-2 text-xs font-bold tracking-wider text-slate-500 uppercase">{t('Select Your Role')}</legend>
+                        <div className="grid grid-cols-5 gap-2">
+                            {roles.map(({ value, label, icon: Icon }) => {
+                                const active = data.role === value;
 
-                                        return (
-                                            <label
-                                                key={value}
-                                                onClick={() => setData('role', value)}
-                                                className="relative flex h-[78px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[15px] border px-1.5 transition-all duration-200"
-                                                style={
-                                                    active
-                                                        ? {
-                                                              borderColor: 'var(--color-indigo-600)',
-                                                              color: 'var(--color-indigo-600)',
-                                                              background: 'linear-gradient(145deg, var(--color-indigo-50), #fff)',
-                                                              boxShadow: '0 10px 28px color-mix(in srgb, var(--color-indigo-600) 12%, transparent)',
-                                                          }
-                                                        : { borderColor: '#e2e8f0', color: '#8693aa' }
-                                                }
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    value={value}
-                                                    checked={active}
-                                                    onChange={() => setData('role', value)}
-                                                    className="absolute opacity-0"
-                                                />
-                                                {active && (
-                                                    <span
-                                                        className="absolute top-2 right-2 h-[7px] w-[7px] rounded-full"
-                                                        style={{
-                                                            background: 'var(--color-indigo-600)',
-                                                            boxShadow: '0 0 0 4px var(--color-indigo-100)',
-                                                        }}
-                                                    />
-                                                )}
-                                                <span
-                                                    className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px]"
-                                                    style={{ background: 'var(--color-indigo-50)' }}
-                                                >
-                                                    <Icon className="h-[17px] w-[17px]" strokeWidth={1.8} />
-                                                </span>
-                                                <strong className="text-center text-[11px] leading-tight font-semibold sm:text-[14px]">{t(label)}</strong>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                                return (
+                                    <label key={value} className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-1 py-2.5 text-[11px] font-semibold transition focus-within:ring-2 focus-within:ring-brand/30 sm:text-xs ${active ? 'border-brand bg-brand text-white shadow-md' : 'border-slate-200 bg-white text-slate-600 hover:border-brand/50'}`}>
+                                        <input type="radio" name="role" value={value} checked={active} onChange={() => setData('role', value)} className="sr-only" />
+                                        <Icon className="h-5 w-5" />
+                                        {t(label)}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </fieldset>
 
-                            <div className="mt-4">
-                                <label htmlFor="identity" className="mb-2 block text-sm font-bold" style={{ color: '#334155' }}>
-                                    {t('Username or email')}
-                                </label>
-                                <div
-                                    className="flex h-[52px] items-center rounded-2xl border-[1.5px] px-4 transition-all duration-200 focus-within:bg-white"
-                                    style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}
-                                >
-                                    <User className="mr-3 h-5 w-5 shrink-0" style={{ color: '#94a3b8' }} strokeWidth={1.8} />
-                                    <input
-                                        id="identity"
-                                        type="text"
-                                        required
-                                        autoComplete="username"
-                                        placeholder={t('Your Username or Email*')}
-                                        value={data.login}
-                                        onChange={(event) => setData('login', event.target.value)}
-                                        className="flex-1 bg-transparent text-[15px] font-medium placeholder-[#94a3b8] outline-none"
-                                        style={{ color: '#1e293b' }}
-                                    />
-                                </div>
-                            </div>
+                    <label className="block">
+                        <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('Username or email')}</span>
+                        <span className="relative block">
+                            <User className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <input className={input} autoComplete="username" autoFocus value={data.login} onChange={(e) => setData('login', e.target.value)} placeholder={t('Your Username or Email')} />
+                        </span>
+                    </label>
 
-                            <div>
-                                <label htmlFor="password" className="mb-2 block text-sm font-bold" style={{ color: '#334155' }}>
-                                    {t('Password')}
-                                </label>
-                                <div
-                                    className="flex h-[52px] items-center rounded-2xl border-[1.5px] px-4 transition-all duration-200 focus-within:bg-white"
-                                    style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}
-                                >
-                                    <Lock className="mr-3 h-5 w-5 shrink-0" style={{ color: '#94a3b8' }} strokeWidth={1.8} />
-                                    <input
-                                        id="password"
-                                        type={showPassword ? 'text' : 'password'}
-                                        required
-                                        autoComplete="current-password"
-                                        placeholder={t('Your Password*')}
-                                        value={data.password}
-                                        onChange={(event) => setData('password', event.target.value)}
-                                        className="flex-1 bg-transparent text-[15px] font-medium placeholder-[#94a3b8] outline-none"
-                                        style={{ color: '#1e293b' }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword((shown) => !shown)}
-                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] transition-colors"
-                                        style={{ color: '#94a3b8' }}
-                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                                    >
-                                        {showPassword ? (
-                                            <EyeOff className="h-[19px] w-[19px]" strokeWidth={1.8} />
-                                        ) : (
-                                            <Eye className="h-[19px] w-[19px]" strokeWidth={1.8} />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div
-                                className="flex items-center justify-between gap-2 rounded-[11px] border border-dashed px-3 py-2.5"
-                                style={{ borderColor: 'var(--color-indigo-200)', background: 'var(--color-indigo-50)' }}
-                            >
-                                <div className="flex min-w-0 items-center gap-1.5 text-[14px]" style={{ color: '#62708a' }}>
-                                    <span className="shrink-0 font-bold" style={{ color: 'var(--color-indigo-600)' }}>
-                                        Demo:
-                                    </span>
-                                    <span className="truncate font-mono">{current.username}</span>
-                                    <span className="opacity-40">•</span>
-                                    <span className="truncate font-mono">••••••••</span>
-                                    <span className="hidden opacity-40 sm:inline">•</span>
-                                    <span className="hidden truncate sm:inline">{current.name}</span>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={fillDemo}
-                                        className="rounded-md p-1 transition-colors"
-                                        style={{ color: 'var(--color-indigo-600)' }}
-                                        title="Fill demo credentials"
-                                    >
-                                        {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between pt-0.5 text-[11px]">
-                                <label className="flex cursor-pointer items-center gap-2 select-none" style={{ color: '#60708a' }}>
-                                    <span
-                                        className="relative h-[19px] w-[34px] cursor-pointer rounded-full transition-all duration-200"
-                                        style={{ background: data.remember ? 'var(--color-indigo-600)' : '#dce2ec' }}
-                                        onClick={() => setData('remember', !data.remember)}
-                                    >
-                                        <span
-                                            className={`absolute top-0.5 left-0.5 h-[15px] w-[15px] rounded-full bg-white shadow-[0_2px_5px_rgba(0,0,0,0.2)] transition-all duration-200 ${
-                                                data.remember ? 'translate-x-[15px]' : 'translate-x-0'
-                                            }`}
-                                        />
-                                    </span>
-                                    <span className="font-medium">{t('Remember me')}</span>
-                                </label>
-
-                                {canResetPassword && (
-                                    <Link href={route('password.request')} className="font-bold" style={{ color: 'var(--color-indigo-600)' }}>
-                                        {t('Forgot password?')}
-                                    </Link>
-                                )}
-                            </div>
-
-                            {error && !dismissedError && (
-                                <div
-                                    className="animate-shake flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-xs"
-                                    style={{ background: '#fdf1f2', border: '1px solid #f7d4d8', color: '#e75465' }}
-                                >
-                                    <div className="flex items-start gap-2">
-                                        <X className="mt-0.5 h-4 w-4 shrink-0" />
-                                        <span>{error}</span>
-                                    </div>
-                                    <button type="button" onClick={() => setDismissedError(true)} className="shrink-0" aria-label="Dismiss error">
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            )}
-
-                            {status && <div className="text-center text-xs text-green-600">{status}</div>}
-
-                            <button
-                                type="submit"
-                                disabled={processing}
-                                className="flex h-[52px] w-full items-center justify-center gap-2.5 rounded-2xl text-sm font-extrabold text-white transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60"
-                                style={{
-                                    background: 'linear-gradient(100deg, var(--color-indigo-700), var(--color-indigo-500))',
-                                    boxShadow: '0 14px 28px color-mix(in srgb, var(--color-indigo-600) 29%, transparent)',
-                                }}
-                            >
-                                <Lock className="h-[18px] w-[18px]" strokeWidth={2} />
-                                {processing ? t('Signing in...') : t('Login')}
-                                <ChevronRight className="h-[18px] w-[18px]" strokeWidth={2} />
+                    <label className="block">
+                        <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('Password')}</span>
+                        <span className="relative block">
+                            <Lock className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <input className={`${input} pe-12`} type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={data.password} onChange={(e) => setData('password', e.target.value)} placeholder={t('Your Password')} />
+                            <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)} className="absolute end-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-slate-700">
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
-                        </form>
-                    </div>
-                </div>
+                        </span>
+                    </label>
 
-                <div
-                    className="relative hidden overflow-hidden rounded-r-[30px] text-white lg:flex lg:flex-col"
-                    style={{
-                        background: 'linear-gradient(145deg, var(--color-indigo-700) 0%, var(--color-indigo-600) 50%, var(--color-indigo-500) 100%)',
-                    }}
-                >
-                    <div
-                        className="absolute rounded-full opacity-30 blur-[5px]"
-                        style={{ width: 350, height: 350, background: 'var(--color-indigo-300)', right: -120, top: -130 }}
-                    />
-                    <div
-                        className="absolute rounded-full opacity-30 blur-[5px]"
-                        style={{ width: 280, height: 280, background: 'var(--color-indigo-800)', left: -100, bottom: -100 }}
-                    />
-                    <div
-                        className="absolute inset-0"
-                        style={{
-                            backgroundImage:
-                                'linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px)',
-                            backgroundSize: '40px 40px',
-                            maskImage: 'linear-gradient(to bottom, transparent, black 30%, black 80%, transparent)',
-                        }}
-                    />
+                    {current && (
+                        <button type="button" onClick={fillDemo} title="Fill demo credentials" className="flex w-full items-center gap-2 rounded-xl border border-dashed border-brand/40 bg-brand-soft px-3 py-2.5 text-start text-xs text-slate-700 transition hover:border-brand">
+                            <span className="font-bold text-brand">{t('Demo')}:</span>
+                            <span className="min-w-0 flex-1 truncate font-mono">{current.username} · {current.password}{current.name ? ` · ${current.name}` : ''}</span>
+                            {copied ? <Check className="h-4 w-4 shrink-0 text-emerald-600" /> : <Copy className="h-4 w-4 shrink-0 text-brand" />}
+                        </button>
+                    )}
 
-                    <div className="relative z-10 px-10 pt-12 pb-1 text-center">
-                        <div
-                            className="mx-auto inline-flex items-center gap-2 rounded-full px-3 py-2 backdrop-blur-sm"
-                            style={{ border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.1)' }}
-                        >
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#88f0c9', boxShadow: '0 0 12px #88f0c9' }} />
-                            <span className="text-[10px] font-extrabold">{t('School Management Simplified')}</span>
-                        </div>
-                        <h2 className="mt-[22px] mb-[15px] text-[43px] leading-[0.93] font-black tracking-[-0.055em]">
-                            {t('Continue')}
-                            <br />
-                            <em className="not-italic" style={{ color: 'var(--color-indigo-200)' }}>
-                                {t('Managing.')}
-                            </em>
-                        </h2>
-                        <p className="mx-auto max-w-[430px] text-[13px] leading-[1.65]" style={{ color: 'var(--color-indigo-100)' }}>
-                            {t("Pick up right where you left off. Sign in to your school's all-in-one management platform.")}
-                        </p>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                        <label className="flex cursor-pointer items-center gap-2 text-slate-600">
+                            <input type="checkbox" checked={data.remember} onChange={(e) => setData('remember', e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-brand" />
+                            {t('Remember me')}
+                        </label>
+                        {canResetPassword && <Link href={route('password.request')} className="font-medium text-brand hover:underline">{t('Forgot password?')}</Link>}
                     </div>
 
-                    <div id="illustration" className="relative z-[3] -mt-3 flex flex-1 items-end justify-center px-6 pb-6">
-                        <div
-                            className="absolute rounded-full"
-                            style={{
-                                width: 360,
-                                height: 360,
-                                left: '50%',
-                                top: '55%',
-                                transform: 'translate(-50%,-50%)',
-                                background: 'radial-gradient(circle, rgba(255,255,255,.28), rgba(255,255,255,.04) 52%, transparent 70%)',
-                                border: '1px solid rgba(255,255,255,.12)',
-                            }}
-                        />
-                        <img
-                            src="/images/login.webp"
-                            alt="School Management Illustration"
-                            className="animate-model-float relative z-[3] h-[400px] w-full max-w-md object-contain"
-                            style={{
-                                filter: 'hue-rotate(var(--brand-hue-shift, 0deg)) drop-shadow(0 30px 30px color-mix(in srgb, var(--color-indigo-950) 28%, transparent))',
-                            }}
-                        />
-
-                        <div
-                            className="absolute top-[38%] left-[4%] z-[5] flex items-center gap-2 rounded-[15px] px-3.5 py-3 text-[10px] font-bold backdrop-blur-[15px]"
-                            style={{
-                                border: '1px solid rgba(255,255,255,.2)',
-                                background: 'color-mix(in srgb, var(--color-indigo-900) 30%, transparent)',
-                                boxShadow: '0 16px 38px color-mix(in srgb, var(--color-indigo-950) 25%, transparent)',
-                            }}
-                        >
-                            <ShieldCheck className="h-5 w-5" strokeWidth={1.8} />
-                            <span>{t('Secure access')}</span>
+                    {error && !dismissedError && (
+                        <div role="alert" className="animate-shake flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700">
+                            <span>{error}</span>
+                            <button type="button" onClick={() => setDismissedError(true)} className="shrink-0" aria-label="Dismiss error"><X className="h-4 w-4" /></button>
                         </div>
+                    )}
+                    {status && <div className="text-center text-xs text-emerald-600">{status}</div>}
 
-                        <div
-                            className="absolute top-[32%] right-[3%] z-[5] flex items-center gap-2 rounded-[15px] px-3.5 py-3 text-[10px] font-bold backdrop-blur-[15px]"
-                            style={{
-                                border: '1px solid rgba(255,255,255,.2)',
-                                background: 'color-mix(in srgb, var(--color-indigo-900) 30%, transparent)',
-                                boxShadow: '0 16px 38px color-mix(in srgb, var(--color-indigo-950) 25%, transparent)',
-                            }}
-                        >
-                            <i className="h-2 w-2 rounded-full" style={{ background: '#66ebbd', boxShadow: '0 0 12px #66ebbd' }} />
-                            <span>{t('Systems online')}</span>
-                            <strong style={{ color: '#8df0ce' }}>99.9%</strong>
-                        </div>
+                    <button type="submit" disabled={processing} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand-2 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60">
+                        <Lock className="h-4 w-4" />
+                        {processing ? t('Signing in...') : t('Login')}
+                        <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+                    </button>
+                </form>
+            </div>
 
-                        <div
-                            className="absolute right-[5%] bottom-[11%] z-[5] flex items-center gap-2 rounded-[15px] px-3 py-2.5 text-[10px] font-bold backdrop-blur-[15px]"
-                            style={{
-                                border: '1px solid rgba(255,255,255,.2)',
-                                background: 'color-mix(in srgb, var(--color-indigo-900) 30%, transparent)',
-                                boxShadow: '0 16px 38px color-mix(in srgb, var(--color-indigo-950) 25%, transparent)',
-                            }}
-                        >
-                            <div className="flex">
-                                {['A', 'S', '+8'].map((letter) => (
-                                    <b
-                                        key={letter}
-                                        className="-ml-1.5 flex h-[25px] w-[25px] items-center justify-center rounded-full border-2 bg-white text-[8px] first:ml-0"
-                                        style={{ color: 'var(--color-indigo-600)', borderColor: 'var(--color-indigo-400)' }}
-                                    >
-                                        {letter}
-                                    </b>
-                                ))}
-                            </div>
-                            <span>{t('Team connected')}</span>
-                        </div>
-                    </div>
-
-                    <div
-                        className="relative z-[6] mx-auto mb-5 grid w-[82%] grid-cols-3 rounded-[17px] px-5 py-3.5 backdrop-blur-[14px]"
-                        style={{
-                            border: '1px solid rgba(255,255,255,.16)',
-                            background: 'color-mix(in srgb, var(--color-indigo-800) 35%, transparent)',
-                        }}
-                    >
-                        {[
-                            ['24/7', 'Secure access'],
-                            ['10k+', 'Active students'],
-                            ['99.9%', 'Platform uptime'],
-                        ].map(([value, label], index) => (
-                            <div
-                                key={label}
-                                className={`flex flex-col items-center ${index < 2 ? 'border-r' : ''}`}
-                                style={{ borderColor: 'rgba(255,255,255,.14)' }}
-                            >
-                                <strong className="text-[15px]">{value}</strong>
-                                <span className="mt-0.5 text-[8px]" style={{ color: 'var(--color-indigo-100)' }}>
-                                    {t(label)}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            <div className="mt-6 text-center text-xs text-slate-500">
+                <Link href="/" className="font-medium text-brand hover:underline">← {t('Back to website')}</Link>
+                <div className="mt-2"><MadeBy /></div>
             </div>
         </div>
     );

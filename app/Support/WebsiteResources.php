@@ -14,14 +14,16 @@ class WebsiteResources
         return [
             'pages' => [
                 'label' => 'Pages',
-                'subtitle' => 'Static pages shown on the public website, such as About or Facilities.',
+                'subtitle' => 'Pages and policies shown on the public website. Mark a page as a policy to list it under Fees & policies.',
                 'table' => 'website_pages',
                 'order' => ['updated_at', 'desc'],
-                'columns' => ['title', 'slug', 'published'],
+                'columns' => ['title', 'slug', 'kind', 'published'],
                 'fields' => [
                     ['name' => 'title', 'label' => 'Title', 'type' => 'text', 'rules' => 'required|string|max:150'],
+                    ['name' => 'kind', 'label' => 'Type', 'type' => 'select', 'rules' => 'required|in:page,policy', 'options' => [['value' => 'policy', 'label' => 'Policy'], ['value' => 'page', 'label' => 'Page']], 'default' => 'policy'],
+                    ['name' => 'sort_order', 'label' => 'Order', 'type' => 'number', 'rules' => 'nullable|integer|min:0', 'default' => 50],
                     ['name' => 'slug', 'label' => 'URL slug', 'type' => 'text', 'rules' => 'nullable|string|max:150|alpha_dash', 'hint' => 'Leave empty to build it from the title.'],
-                    ['name' => 'body', 'label' => 'Content', 'type' => 'textarea', 'rules' => 'nullable|string'],
+                    ['name' => 'body', 'label' => 'Content', 'type' => 'richtext', 'rules' => 'nullable|string|max:60000'],
                     ['name' => 'published', 'label' => 'Published', 'type' => 'checkbox', 'default' => true],
                 ],
             ],
@@ -33,7 +35,9 @@ class WebsiteResources
                 'columns' => ['title', 'subtitle', 'sort_order', 'active'],
                 'fields' => [
                     ['name' => 'title', 'label' => 'Headline', 'type' => 'text', 'rules' => 'required|string|max:150'],
+                    ['name' => 'eyebrow', 'label' => 'Small label above the headline', 'type' => 'text', 'rules' => 'nullable|string|max:80'],
                     ['name' => 'subtitle', 'label' => 'Sub-headline', 'type' => 'text', 'rules' => 'nullable|string|max:255'],
+                    ['name' => 'image_url', 'label' => 'Picture link', 'type' => 'text', 'rules' => 'nullable|string|max:500', 'hint' => 'A link or a path such as /images/site/hero-campus.svg'],
                     ['name' => 'button_label', 'label' => 'Button text', 'type' => 'text', 'rules' => 'nullable|string|max:60'],
                     ['name' => 'button_url', 'label' => 'Button link', 'type' => 'text', 'rules' => 'nullable|string|max:255'],
                     ['name' => 'sort_order', 'label' => 'Order', 'type' => 'number', 'rules' => 'nullable|integer|min:0', 'default' => 0],

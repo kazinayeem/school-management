@@ -22,7 +22,7 @@ class PayrollController extends Controller
 
         $rows = $staff->map(function ($u) use ($structures, $items, $components) {
             $s = $structures[$u->id] ?? null;
-            $values = $s ? $items[$s->id]->pluck('value', 'component_id') ?? collect() : collect();
+            $values = $s ? ($items[$s->id] ?? collect())->pluck('value', 'component_id') : collect();
             $calc = $s ? $this->compute((int) $s->basic, $components, $values) : null;
 
             return ['id' => $u->id, 'name' => $u->name, 'basic' => $s?->basic, 'values' => (object) ($s ? ($items[$s->id] ?? collect())->pluck('value', 'component_id')->all() : []), 'earnings' => $calc['earnings'] ?? null, 'deductions' => $calc['deductions'] ?? null, 'net' => $calc['net'] ?? null];

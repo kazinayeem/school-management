@@ -1,3 +1,4 @@
+import { MadeBy } from '@/components/made-by';
 import { Avatar } from '@/components/avatar';
 import { code128Bars } from '@/lib/barcode';
 import { useI18n } from '@/lib/i18n';
@@ -87,12 +88,14 @@ export default function StudentDocument(p: Props) {
         <div className="min-h-screen bg-slate-200 p-4 print:bg-white print:p-0" style={{ colorScheme: 'light' }}>
             <Head title={`${full ? t('Student file') : t('Academic transcript')} · ${s.name}`} />
             <div className="mx-auto mb-3 flex max-w-[794px] justify-end print:hidden">
-                <button
-                    onClick={() => window.print()}
-                    className="flex items-center gap-2 rounded-lg bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white"
-                >
-                    <Printer className="h-4 w-4" /> {t('Print or save as PDF')}
-                </button>
+                <span className="flex gap-2">
+                    <a href={`/students/${s.id}/${full ? 'file' : 'transcript'}.pdf`} className="flex items-center gap-2 rounded-lg bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white">
+                        {t('Download PDF')}
+                    </a>
+                    <button onClick={() => window.print()} className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm">
+                        <Printer className="h-4 w-4" /> {t('Print')}
+                    </button>
+                </span>
             </div>
 
             <article className="mx-auto max-w-[794px] space-y-5 bg-white p-8 text-slate-900 shadow-xl print:max-w-none print:p-0 print:shadow-none">
@@ -259,6 +262,7 @@ export default function StudentDocument(p: Props) {
                     </div>
                 </footer>
             </article>
+            <MadeBy className="mt-3" />
         </div>
     );
 }

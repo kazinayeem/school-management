@@ -52,6 +52,13 @@ class LoginRequest extends FormRequest
         ];
 
         if (! Auth::attempt($credentials, $this->boolean('remember'))) {
+            // Right password, wrong role button: say so, and do not count it as a failed guess.
+            $account = \App\Models\User::where($field, $credentials[$field])->where('is_active', true)->first();
+            if ($account && \Illuminate\Support\Facades\Hash::check($credentials['password'], $account->password)) {
+                $label = \App\Support\Permissions::label($account->role);
+                throw ValidationException::withMessages(['login' => "This is a {$label} account. Choose “{$label}” above and sign in again."]);
+            }
+
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

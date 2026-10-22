@@ -211,6 +211,7 @@ class WebsiteController extends Controller
                 'number' => (int) ($value ?? ($f['default'] ?? 0)),
                 'select' => ($value === '' || $value === null) ? null : $value,
                 'datetime' => $value === null ? null : str_replace('T', ' ', (string) $value),
+                'richtext' => \App\Support\Html::clean((string) $value),
                 default => $value,
             };
         }

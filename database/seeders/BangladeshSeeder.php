@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\FeePlanner;
 use App\Support\Grading;
 use App\Support\TransportSync;
 use Illuminate\Database\Seeder;
@@ -57,6 +58,8 @@ class BangladeshSeeder extends Seeder
         $this->transport($students);
         $this->campus($students);
         $this->website();
+        $this->payroll();
+        $this->conversations();
     }
 
     // ---------------------------------------------------------------- people
@@ -69,7 +72,7 @@ class BangladeshSeeder extends Seeder
             'library_books', 'library_members', 'library_loans', 'library_reservations', 'bus_assignments', 'transport_vehicles', 'transport_stops',
             'transport_routes', 'school_notices', 'calendar_events', 'leave_requests', 'contact_messages', 'admission_applications', 'student_notes',
             'student_documents', 'certificates', 'online_transactions', 'sms_logs', 'substitutions', 'staff_attendance', 'punches', 'rooms',
-            'testimonials', 'website_events', 'faqs', 'homework_items', 'fee_waivers',
+            'testimonials', 'website_events', 'faqs', 'homework_items', 'fee_waivers', 'fee_assignments', 'fee_invoice_items', 'app_notifications', 'attachments', 'ticket_events', 'ticket_replies', 'tickets', 'messages', 'conversation_participants', 'conversations',
         ] as $table) {
             DB::table($table)->delete();
         }
@@ -365,41 +368,112 @@ class BangladeshSeeder extends Seeder
 
     private function fees(array $students): void
     {
-        $months = [['August', '2026-08-10', 0.97], ['September', '2026-09-10', 0.88], ['October', '2026-10-10', 0.58]];
+        $now = now();
+        $tuition = [1000, 1100, 1200, 1300, 1400, 1600, 1700, 1800, 2000, 2200];
+        $mk = fn ($name, $category, $frequency, $optional, $class, $amount, $desc = null) => ['name' => $name, 'class_name' => $class, 'amount' => $amount, 'active' => 1, 'category' => $category, 'frequency' => $frequency, 'optional' => $optional, 'description' => $desc, 'created_at' => $now, 'updated_at' => $now];
+        $rows = [];
+        foreach (range(1, 10) as $n) {
+            $c = "Class $n";
+            $rows[] = $mk('Monthly Tuition', 'tuition', 'monthly', 0, $c, $tuition[$n - 1], 'Charged every month.');
+            $rows[] = $mk('Admission Fee', 'admission', 'one_time', 0, $c, 3000 + 500 * $n, 'Paid once when a child joins.');
+            $rows[] = $mk('Exam Fee', 'exam', 'per_exam', 0, $c, 300 + 50 * $n, 'Charged for each term exam.');
+            $n >= 3 && $rows[] = $mk('Computer Lab (ICT)', 'lab', 'monthly', 1, $c, 150, 'Only for students who join the computer lab.');
+            $n >= 6 && $rows[] = $mk('Science Lab', 'lab', 'monthly', 1, $c, 100 + 25 * ($n - 5), 'Only for students who take practical science.');
+        }
+        $rows[] = $mk('Library Fee', 'library', 'yearly', 0, null, 200, 'Yearly, all classes.');
+        $rows[] = $mk('Sports & Annual Function', 'sports', 'yearly', 0, null, 300, 'Yearly, all classes.');
+        DB::table('fee_heads')->delete();
+        DB::table('fee_heads')->insert($rows);
+        $heads = DB::table('fee_heads')->get();
+        $byName = fn (string ...$names) => $heads->filter(fn ($h) => in_array($h->name, $names, true));
+
+        // Individual extras and discounts.
+        $waivers = [];
+        $assignments = [];
+        foreach ($students as $i => $st) {
+            $n = (int) substr($st['class'], 6);
+            $demo = $st['demo'] === 'student';
+            if ($n >= 3 && ($demo || mt_rand(1, 100) <= 40)) {
+                foreach ($heads->where('name', 'Computer Lab (ICT)')->where('class_name', $st['class']) as $h) {
+                    $assignments[] = ['user_id' => $st['id'], 'fee_head_id' => $h->id, 'created_at' => $now, 'updated_at' => $now];
+                }
+            }
+            if ($n >= 6 && ($demo || mt_rand(1, 100) <= 55)) {
+                foreach ($heads->where('name', 'Science Lab')->where('class_name', $st['class']) as $h) {
+                    $assignments[] = ['user_id' => $st['id'], 'fee_head_id' => $h->id, 'created_at' => $now, 'updated_at' => $now];
+                }
+            }
+            $r = mt_rand(1, 100);
+            if ($demo) {
+                $waivers[] = ['user_id' => $st['id'], 'kind' => 'percent', 'value' => 25, 'reason' => 'Merit scholarship for top 5 in class', 'active' => 1, 'applies_to' => 'tuition', 'type' => 'scholarship', 'created_at' => $now, 'updated_at' => $now];
+            } elseif ($r <= 4) {
+                $waivers[] = ['user_id' => $st['id'], 'kind' => 'percent', 'value' => 50, 'reason' => 'Merit scholarship', 'active' => 1, 'applies_to' => 'tuition', 'type' => 'scholarship', 'created_at' => $now, 'updated_at' => $now];
+            } elseif ($r <= 9) {
+                $waivers[] = ['user_id' => $st['id'], 'kind' => 'percent', 'value' => 10, 'reason' => 'Second child in school', 'active' => 1, 'applies_to' => 'tuition', 'type' => 'sibling', 'created_at' => $now, 'updated_at' => $now];
+            } elseif ($r <= 12) {
+                $waivers[] = ['user_id' => $st['id'], 'kind' => 'fixed', 'value' => 300, 'reason' => 'Family hardship, approved by the principal', 'active' => 1, 'applies_to' => 'all', 'type' => 'need', 'created_at' => $now, 'updated_at' => $now];
+            }
+        }
+        DB::table('fee_assignments')->insert($assignments);
+        DB::table('fee_waivers')->insert($waivers);
+
         $methods = ['Cash', 'Cash', 'bKash', 'bKash', 'Nagad', 'Card'];
+        $plans = [
+            ['Annual Charges 2026', '2026-02-15', 0.95, $byName('Library Fee', 'Sports & Annual Function')],
+            ['Exam Fee – Half Yearly 2026', '2026-06-05', 0.95, $byName('Exam Fee')],
+            ['Monthly Fee – August 2026', '2026-08-10', 0.97, $byName('Monthly Tuition', 'Computer Lab (ICT)', 'Science Lab')],
+            ['Monthly Fee – September 2026', '2026-09-10', 0.88, $byName('Monthly Tuition', 'Computer Lab (ICT)', 'Science Lab')],
+            ['Monthly Fee – October 2026', '2026-10-10', 0.58, $byName('Monthly Tuition', 'Computer Lab (ICT)', 'Science Lab')],
+        ];
+        $waiverMap = collect($waivers)->groupBy('user_id')->map(fn ($g) => $g->map(fn ($w) => (object) $w));
+        $assignMap = collect($assignments)->groupBy('user_id')->map(fn ($g) => $g->pluck('fee_head_id')->flip()->map(fn () => true)->all());
+
         $dues = [];
         $inv = 0;
         $pay = 0;
-        $invoices = [];
-        $payments = [];
-
+        $invoiceRows = [];
+        $itemRows = [];
+        $paymentRows = [];
         foreach ($students as $st) {
-            $fee = 700 + 100 * (int) substr($st['class'], 6);
-            foreach ($months as [$month, $due, $rate]) {
+            $class = $st['class'];
+            foreach ($plans as [$label, $due, $rate, $planHeads]) {
+                $items = FeePlanner::items($class, $planHeads, $waiverMap[$st['id']] ?? collect(), $assignMap[$st['id']] ?? []);
+                if ($items === []) {
+                    continue;
+                }
                 $inv++;
+                $payable = array_sum(array_column($items, 'net'));
                 $paid = mt_rand(0, 999) / 1000 < $rate;
                 $partial = ! $paid && mt_rand(1, 6) === 1;
-                $amount = $partial ? (int) ($fee / 2) : ($paid ? $fee : 0);
-                $invoices[] = [
-                    'user_id' => $st['id'], 'invoice_no' => 'INV-'.str_pad((string) $inv, 6, '0', STR_PAD_LEFT), 'label' => "Tuition Fee – $month 2026",
-                    'due_on' => $due, 'payable' => $fee, 'paid' => $amount, 'status' => $paid ? 'paid' : ($partial ? 'partial' : 'unpaid'), 'late_fee' => 0,
-                ];
+                $amount = $partial ? (int) ($payable / 2) : ($paid ? $payable : 0);
+                $no = 'INV-'.str_pad((string) $inv, 6, '0', STR_PAD_LEFT);
+                $invoiceRows[] = ['user_id' => $st['id'], 'invoice_no' => $no, 'label' => $label, 'due_on' => $due, 'payable' => $payable, 'paid' => $amount, 'status' => $paid ? 'paid' : ($partial ? 'partial' : 'unpaid'), 'late_fee' => 0];
+                foreach ($items as $item) {
+                    $itemRows[$no][] = $item;
+                }
                 if ($amount > 0) {
                     $pay++;
-                    $payments[] = [
-                        'user_id' => $st['id'], 'receipt_no' => 'RCPT-'.str_pad((string) $pay, 6, '0', STR_PAD_LEFT),
-                        'paid_on' => date('Y-m-d', strtotime($due) - mt_rand(0, 8) * 86400), 'method' => $this->pick($methods), 'amount' => $amount, 'late_fee' => 0, 'status' => 'posted',
-                    ];
+                    $paymentRows[] = ['user_id' => $st['id'], 'receipt_no' => 'RCPT-'.str_pad((string) $pay, 6, '0', STR_PAD_LEFT), 'paid_on' => date('Y-m-d', strtotime($due) - mt_rand(0, 8) * 86400), 'method' => $this->pick($methods), 'amount' => $amount, 'late_fee' => 0, 'status' => 'posted'];
                 }
-                if ($amount < $fee) {
-                    $dues[$st['id']] = [($dues[$st['id']][0] ?? 0) + $fee - $amount, ($dues[$st['id']][1] ?? 0) + 1];
+                if ($amount < $payable) {
+                    $dues[$st['id']] = [($dues[$st['id']][0] ?? 0) + $payable - $amount, ($dues[$st['id']][1] ?? 0) + 1];
                 }
             }
         }
-        foreach (array_chunk($invoices, 300) as $chunk) {
+        foreach (array_chunk($invoiceRows, 300) as $chunk) {
             DB::table('fee_invoices')->insert($chunk);
         }
-        foreach (array_chunk($payments, 300) as $chunk) {
+        $ids = DB::table('fee_invoices')->pluck('id', 'invoice_no');
+        $flat = [];
+        foreach ($itemRows as $no => $items) {
+            foreach ($items as $item) {
+                $flat[] = $item + ['invoice_id' => $ids[$no]];
+            }
+        }
+        foreach (array_chunk($flat, 300) as $chunk) {
+            DB::table('fee_invoice_items')->insert($chunk);
+        }
+        foreach (array_chunk($paymentRows, 300) as $chunk) {
             DB::table('fee_payments')->insert($chunk);
         }
         foreach ($dues as $id => [$total, $count]) {
@@ -493,7 +567,7 @@ class BangladeshSeeder extends Seeder
                 $submitted = $st['demo'] === null && mt_rand(1, 3) > 1;
                 $rows[] = [
                     'user_id' => $st['id'], 'title' => $title, 'subject' => $subject, 'teacher' => $teachers[$j * 4 + intdiv($secIndex, 6)]['name'], 'due_on' => today()->addDays(mt_rand(-5, 6))->toDateString(),
-                    'status' => $submitted ? 'submitted' : 'todo', 'instructions' => 'Complete in your notebook and submit on time.', 'submitted_at' => $submitted ? now()->subDays(2) : null,
+                    'status' => $submitted ? 'submitted' : 'todo', 'instructions' => 'Complete in your notebook and submit on time.', 'batch' => md5($st['class'].$st['section'].$title), 'submitted_at' => $submitted ? now()->subDays(2) : null,
                     'created_at' => now(), 'updated_at' => now(),
                 ];
             }
@@ -608,7 +682,7 @@ class BangladeshSeeder extends Seeder
             DB::table('admission_applications')->insert([
                 'tracking_no' => 'ADM-2027-'.str_pad((string) ($k + 1), 4, '0', STR_PAD_LEFT), 'class_name' => $class, 'first_name' => $first, 'last_name' => $last, 'date_of_birth' => '2016-0'.($k + 2).'-1'.$k,
                 'gender' => $gender, 'religion' => $k === 2 ? 'Hinduism' : 'Islam', 'address' => $this->pick(self::AREAS), 'guardian_name' => $guardian, 'relation' => 'Father', 'mobile' => $mobile,
-                'status' => $k === 0 ? 'approved' : 'pending', 'created_at' => $now, 'updated_at' => $now,
+                'status' => $k === 0 ? 'admitted' : 'received', 'created_at' => $now, 'updated_at' => $now,
             ]);
         }
         $messages = [['Rashed Karim', 'rashed@example.com', '01711000111', 'আমার ছেলেকে Class 4-এ ভর্তি করতে চাই। কী কী কাগজপত্র লাগবে?'], ['Sultana Razia', 'razia@example.com', '01811000222', 'Is school transport available from Uttara Sector 10?'], ['Anwar Hossain', 'anwar@example.com', '01911000333', 'Please share the Annual Examination routine for Class 7.']];
@@ -626,9 +700,119 @@ class BangladeshSeeder extends Seeder
         }
     }
 
+    /** A few real conversations and tickets so the inbox and ticket pages are not empty on a fresh install. */
+    private function conversations(): void
+    {
+        $id = fn (string $u) => (int) DB::table('users')->where('username', $u)->value('id');
+        $admin = $id('superadmin');
+        $teacher = $id('jsmith');
+        $parent = $id('parent');
+        $student = $id('student');
+        $now = now();
+
+        $talk = function (string $subject, int $from, array $to, string $body) use ($now) {
+            $c = DB::table('conversations')->insertGetId(['subject' => $subject, 'created_by' => $from, 'last_message_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+            DB::table('conversation_participants')->insert(collect($to)->push($from)->unique()->map(fn ($u) => ['conversation_id' => $c, 'user_id' => $u, 'last_read_at' => $u === $from ? $now : null])->all());
+            DB::table('messages')->insert(['conversation_id' => $c, 'sender_id' => $from, 'body' => $body, 'body_text' => strip_tags($body), 'created_at' => $now, 'updated_at' => $now]);
+
+            return $c;
+        };
+        $c1 = $talk('Class 8 A: Mathematics test on Sunday', $teacher, [$parent], '<p>Dear parent, Tanvir has a <strong>Mathematics test on Sunday</strong>. Please make sure he revises chapters 4 and 5.</p>');
+        $talk('Equipment for the science lab', $teacher, [$admin], '<p>The microscopes in the science lab need servicing before the practical exams. Could we arrange this next week?</p>');
+        DB::table('app_notifications')->insert([
+            ['user_id' => $parent, 'kind' => 'message', 'title' => 'New message from Md. Jahangir Alam', 'body' => 'Class 8 A: Mathematics test on Sunday', 'url' => "/parent/messages/{$c1}", 'created_at' => $now],
+            ['user_id' => $admin, 'kind' => 'message', 'title' => 'New message from Md. Jahangir Alam', 'body' => 'Equipment for the science lab', 'url' => '/app/messages', 'created_at' => $now],
+        ]);
+
+        $ticket = function (string $title, string $category, string $priority, string $status, int $by, ?int $to, string $body, ?int $about = null) use ($now) {
+            $n = DB::table('tickets')->count() + 1;
+            $t = DB::table('tickets')->insertGetId(['reference' => sprintf('TKT-%s-%05d', now()->format('y'), $n), 'title' => $title, 'category' => $category, 'priority' => $priority, 'status' => $status, 'requester_id' => $by,
+                'assigned_to' => $to, 'student_id' => $about, 'description' => $body, 'last_activity_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+            DB::table('ticket_events')->insert(['ticket_id' => $t, 'user_id' => $by, 'type' => 'created', 'to_value' => 'submitted', 'created_at' => $now]);
+
+            return $t;
+        };
+        $t1 = $ticket('Homework load is too heavy this week', 'academic', 'normal', 'submitted', $parent, null, '<p>My son has been given a lot of homework across four subjects every day this week. Could the teachers please coordinate?</p>', $student);
+        $ticket('Projector in Room 205 is not working', 'infrastructure', 'high', 'in_progress', $teacher, $admin, '<p>The projector shows a blank screen. I have checked the cable and the power.</p>');
+        DB::table('app_notifications')->insert(['user_id' => $admin, 'kind' => 'ticket', 'title' => 'New ticket: TKT-'.now()->format('y').'-00001', 'body' => 'Homework load is too heavy this week', 'url' => "/app/tickets/{$t1}", 'created_at' => $now]);
+    }
+
+    private function payroll(): void
+    {
+        $now = now();
+        foreach (['staff_attendance', 'payslips', 'payroll_runs', 'salary_structure_items', 'salary_structures'] as $t) {
+            DB::table($t)->delete();
+        }
+        $components = DB::table('payroll_components')->where('active', true)->get(['id', 'kind', 'calc', 'value']);
+        $employees = DB::table('users')->join('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')->get(['users.id', 'staff_profiles.designation']);
+        $basics = ['Head Master' => 60000, 'Senior Teacher' => 38000, 'Assistant Teacher' => 28000, 'Accountant' => 30000, 'Librarian' => 24000, 'Admission Officer' => 22000, 'Office Assistant' => 16000];
+
+        $slips = [];
+        foreach ($employees as $e) {
+            $basic = $basics[$e->designation] ?? 20000;
+            DB::table('salary_structures')->insert(['user_id' => $e->id, 'basic' => $basic, 'created_at' => $now, 'updated_at' => $now]);
+            $earn = $ded = 0;
+            foreach ($components as $c) {
+                $amount = $c->calc === 'percent' ? (int) round($basic * $c->value / 100) : (int) $c->value;
+                $c->kind === 'earning' ? $earn += $amount : $ded += $amount;
+            }
+            $slips[$e->id] = [$basic, $earn, $ded, $basic + $earn - $ded];
+        }
+        foreach ([['2026-08', '2026-08-31'], ['2026-09', '2026-09-30']] as [$month, $paid]) {
+            $run = DB::table('payroll_runs')->insertGetId(['month' => $month, 'status' => 'paid', 'paid_on' => $paid, 'created_at' => $now, 'updated_at' => $now]);
+            foreach ($slips as $id => [$basic, $earn, $ded, $net]) {
+                DB::table('payslips')->insert(['run_id' => $run, 'user_id' => $id, 'basic' => $basic, 'earnings' => $earn, 'deductions' => $ded, 'net' => $net]);
+            }
+        }
+
+        $rows = [];
+        $date = today()->subDay();
+        $days = 0;
+        while ($days < 30) {
+            if (! in_array($date->dayOfWeek, [5, 6], true)) {
+                foreach ($employees as $e) {
+                    $r = mt_rand(0, 99);
+                    $rows[] = ['user_id' => $e->id, 'date' => $date->toDateString(), 'status' => $r < 90 ? 'present' : ($r < 96 ? 'late' : ($r < 98 ? 'leave' : 'absent')), 'created_at' => $now, 'updated_at' => $now];
+                }
+                $days++;
+            }
+            $date = $date->subDay();
+        }
+        foreach (array_chunk($rows, 300) as $chunk) {
+            DB::table('staff_attendance')->insert($chunk);
+        }
+    }
+
     private function website(): void
     {
         $now = now();
+        \App\Support\SitePages::seed();
+        foreach (['hero_banners', 'gallery_items'] as $t) {
+            DB::table($t)->delete();
+        }
+        foreach ([
+            'school_name' => 'Borno School', 'tagline' => 'Nurturing minds, building future leaders', 'phone' => '+880 1711-000000', 'email' => 'office@borno.edu.bd',
+            'address' => 'House 12, Road 5, Dhanmondi, Dhaka 1205', 'footer_text' => 'Education that builds character, not just results.', 'admission_open' => '1',
+            'pay_bkash_number' => '01711-000000', 'pay_bkash_type' => 'Merchant', 'pay_nagad_number' => '01811-000000', 'pay_nagad_type' => 'Personal', 'pay_bank_name' => 'Islami Bank Bangladesh Ltd', 'pay_bank_branch' => 'Dhanmondi Branch',
+            'pay_bank_account_name' => 'Borno School', 'pay_bank_account_number' => '2050 1234 5678 9012', 'gateway_instructions' => 'Use your child’s admission number as the payment reference, then submit the transaction ID here. Approval takes one working day.',
+        ] as $key => $value) {
+            DB::table('site_settings')->updateOrInsert(['key' => $key], ['value' => $value]);
+        }
+        DB::table('hero_banners')->insert([
+            ['eyebrow' => 'ADMISSIONS OPEN · SESSION 2027', 'title' => 'Nurturing minds, building future leaders', 'subtitle' => 'A school for Class 1 to Class 10 where every child is known by name and academic excellence grows alongside character.', 'button_label' => 'Apply for admission', 'button_url' => '/admission', 'image_url' => '/images/site/hero-campus.svg', 'sort_order' => 1, 'active' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['eyebrow' => 'SMALL SECTIONS', 'title' => 'Teachers who know your child', 'subtitle' => 'Thirty students to a section, trained teachers for every subject, and homework feedback you can read from home.', 'button_label' => 'Meet our teachers', 'button_url' => '/teachers', 'image_url' => '/images/site/hero-classroom.svg', 'sort_order' => 2, 'active' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['eyebrow' => 'BEYOND THE CLASSROOM', 'title' => 'Sport, science and the arts', 'subtitle' => 'Annual sports, science fair, cultural programme and a library open all day.', 'button_label' => 'See campus life', 'button_url' => '/gallery', 'image_url' => '/images/site/hero-playground.svg', 'sort_order' => 3, 'active' => 1, 'created_at' => $now, 'updated_at' => $now],
+        ]);
+        $gallery = [
+            ['Annual Sports Day', 'Sports', 'Relay races on the school field.', 'gallery-sports'], ['Science Fair', 'Science', 'Class 6 to 10 present their projects.', 'gallery-science'],
+            ['Library Week', 'Library', 'Reading challenge and book fair.', 'gallery-library'], ['Art Class', 'Arts', 'Watercolour morning with Class 4.', 'gallery-art'],
+            ['Morning Assembly', 'Campus', 'National anthem and the pledge.', 'gallery-assembly'], ['Computer Lab', 'Science', 'Learning to code in Class 8.', 'gallery-computer'],
+            ['Cultural Programme', 'Arts', 'Songs and dance on Victory Day.', 'gallery-cultural'], ['Class of 2026', 'Campus', 'Our SSC batch celebrates.', 'gallery-graduation'],
+        ];
+        foreach ($gallery as $i => [$title, $album, $caption, $file]) {
+            DB::table('gallery_items')->insert(['title' => $title, 'album' => $album, 'caption' => $caption, 'image_url' => "/images/site/{$file}.svg", 'sort_order' => $i + 1, 'created_at' => $now, 'updated_at' => $now]);
+        }
+
         DB::table('testimonials')->insert([
             ['name' => 'Rokeya Begum', 'role' => 'Parent, Class 6', 'quote' => 'আমার মেয়ে এই স্কুলে এসে পড়াশোনায় অনেক আগ্রহী হয়েছে। শিক্ষকরা খুবই আন্তরিক।', 'rating' => 5, 'published' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'Md. Habibur Rahman', 'role' => 'Parent, Class 9', 'quote' => 'The online portal keeps me updated about my son’s attendance and results every week.', 'rating' => 5, 'published' => 1, 'created_at' => $now, 'updated_at' => $now],
@@ -643,6 +827,9 @@ class BangladeshSeeder extends Seeder
             ['question' => 'How can I apply for admission?', 'answer' => 'Use the Online Admission page, fill in the form and note your tracking number.', 'sort_order' => 1, 'published' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['question' => 'Is school transport available?', 'answer' => 'Yes. We run four bus lines across Dhaka. Ask the office for stops and fares.', 'sort_order' => 2, 'published' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['question' => 'How do I pay fees?', 'answer' => 'Pay at the accounts office, or online by bKash, Nagad or card from the parent portal.', 'sort_order' => 3, 'published' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['question' => 'What are the monthly fees?', 'answer' => 'Tuition depends on the class, from Tk 1,000 a month in Class 1. Labs and activities are charged only if your child joins them. The table on this page shows each class.', 'sort_order' => 4, 'published' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['question' => 'Is there a discount or scholarship?', 'answer' => 'Yes. The school gives merit scholarships, a sibling discount and help for families in financial need. Ask the office; approved discounts show on every invoice.', 'sort_order' => 5, 'published' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['question' => 'Which documents are needed for admission?', 'answer' => 'A birth certificate, the previous school certificate for Class 2 and above, and the parents’ NID. The office scans them into the student file.', 'sort_order' => 6, 'published' => 1, 'created_at' => $now, 'updated_at' => $now],
         ]);
     }
 }

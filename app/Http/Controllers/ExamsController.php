@@ -56,6 +56,8 @@ class ExamsController extends Controller
             'schedule' => $schedule,
             'published' => $examId ? DB::table('exam_publications')->where('exam_id', $examId)->where('class_name', $class)->exists() : false,
             'rooms' => DB::table('rooms')->where('active', true)->orderBy('name')->pluck('name'),
+            'admitLimit' => \App\Support\AdmitCards::limit(),
+            'currency' => SiteSettings::get('currency', 'Tk'),
         ]);
     }
 
@@ -67,6 +69,50 @@ class ExamsController extends Controller
         Audit::log('created', 'Exam', $data['name']);
 
         return redirect("/app/exams?exam={$id}")->with('status', 'Exam created.');
+    }
+
+    /** One form: name, dates and classes. The timetable for each class is filled in and can be adjusted afterwards. */
+    public function quickCreate(Request $request): RedirectResponse
+    {
+        $this->admin($request);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150', Rule::unique('exams', 'name')],
+            'starts_on' => ['required', 'date'],
+            'ends_on' => ['required', 'date', 'after_or_equal:starts_on'],
+            'classes' => ['required', 'array', 'min:1'],
+            'classes.*' => ['string', Rule::in($this->classes())],
+            'starts_at' => ['required', 'date_format:H:i'],
+        ]);
+
+        $id = DB::transaction(function () use ($data) {
+            $id = DB::table('exams')->insertGetId(['name' => $data['name'], 'starts_on' => $data['starts_on'], 'ends_on' => $data['ends_on'], 'created_at' => now(), 'updated_at' => now()]);
+            \App\Support\ExamPlanner::fill($id, $data['starts_on'], $data['ends_on'], $data['classes'], $data['starts_at']);
+
+            return $id;
+        });
+        Audit::log('created', 'Exam', $data['name']);
+
+        return redirect("/app/exams?exam={$id}&class=".urlencode($data['classes'][0]))->with('status', 'Exam created with a timetable for '.count($data['classes']).' class(es). Adjust any date below.');
+    }
+
+    public function admitSettings(Request $request): RedirectResponse
+    {
+        $this->admin($request);
+        $data = $request->validate(['admit_due_limit' => ['nullable', 'integer', 'min:0', 'max:10000000']]);
+        DB::table('site_settings')->updateOrInsert(['key' => 'admit_due_limit'], ['value' => (string) ($data['admit_due_limit'] ?? '')]);
+        Audit::log('updated', 'Admit card dues limit', (string) ($data['admit_due_limit'] ?? 'off'));
+
+        return back()->with('status', 'Admit card rule saved.');
+    }
+
+    public function admitOverride(Request $request): RedirectResponse
+    {
+        $this->admin($request);
+        $data = $request->validate(['exam_id' => ['required', 'exists:exams,id'], 'user_id' => ['required', 'exists:users,id'], 'allow' => ['required', 'boolean']]);
+        $q = DB::table('admit_card_overrides')->where('exam_id', $data['exam_id'])->where('user_id', $data['user_id']);
+        $data['allow'] ? $q->exists() || DB::table('admit_card_overrides')->insert(['exam_id' => $data['exam_id'], 'user_id' => $data['user_id'], 'created_at' => now(), 'updated_at' => now()]) : $q->delete();
+
+        return back()->with('status', $data['allow'] ? 'Admit card released for this student.' : 'Release removed.');
     }
 
     public function updateExam(Request $request, int $id): RedirectResponse
@@ -193,11 +239,18 @@ class ExamsController extends Controller
             'filters' => ['exam' => $exam->id ?? 0, 'class' => $class, 'section' => $section ?? '', 'roll' => $roll],
             'exam' => $exam,
             'schedule' => $schedule,
-            'students' => $students->map(function ($s) {
+            'students' => $students->map(function ($s) use ($exam) {
                 $s->photo = \App\Support\Photos::url($s->photo);
+                if ($exam) {
+                    $st = \App\Support\AdmitCards::status((int) $s->id, (int) $exam->id);
+                    $s->due = $st['due'];
+                    $s->held = ! $st['allowed'];
+                    $s->released = $st['overridden'];
+                }
 
                 return $s;
             })->values(),
+            'admitLimit' => \App\Support\AdmitCards::limit(),
             'school' => ['name' => SiteSettings::get('school_name', config('app.name'))],
         ]);
     }

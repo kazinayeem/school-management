@@ -32,7 +32,7 @@ function StudentSearch({
 }: {
     isPicked: (s: PickedStudent) => boolean;
     onPick: (s: PickedStudent) => void;
-    scope?: 'library';
+    scope?: 'library' | 'routine';
     actionLabel?: string;
 }) {
     const { t } = useI18n();
@@ -188,7 +188,7 @@ export function StudentSelect({
     label: string;
     value: PickedStudent | null;
     onChange: (student: PickedStudent | null) => void;
-    scope?: 'library';
+    scope?: 'library' | 'routine';
     error?: string;
 }) {
     const { t } = useI18n();

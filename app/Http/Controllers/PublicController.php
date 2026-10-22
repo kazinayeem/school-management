@@ -21,10 +21,17 @@ class PublicController extends Controller
                 'title' => config('app.name'),
                 'ticker' => $notices[0] ?? null,
                 'notices' => array_slice($notices, 0, 3),
-                'events' => PublicContent::events(),
+                'events' => $this->homeEvents(),
                 'teachers' => array_slice(PublicContent::teachers(), 0, 8),
-                'faqs' => PublicContent::faqs(),
+                'faqs' => $this->faqList(),
                 'albums' => array_slice(PublicContent::albums(), 0, 4),
+                'banners' => PublicContent::banners(),
+                'site' => PublicContent::site(),
+                'admissionOpen' => PublicContent::site()['admission_open'],
+                'gallery' => PublicContent::gallery(8),
+                'testimonials' => PublicContent::testimonials(),
+                'fees' => PublicContent::fees(),
+                'stats' => PublicContent::stats(),
             ],
         ]);
     }
@@ -41,6 +48,18 @@ class PublicController extends Controller
             'terms-and-conditions' => ['Terms & conditions', 'Online admission gives you a tracking number. A place is confirmed only after the office reviews the application.', ['A tracking number is not a confirmed seat', 'Published results can be checked by roll number', 'Fee receipts are issued after a payment is recorded']],
         ];
 
+        $edited = \App\Support\SitePages::find($slug);
+        if ($edited) {
+            return $this->render([
+                'kind' => 'article',
+                'title' => $edited->title,
+                'html' => \App\Support\SitePages::html((string) $edited->body),
+                'body' => '',
+                'policies' => $edited->kind === 'policy' ? \App\Support\SitePages::policies() : [],
+                'ticker' => $this->ticker(),
+            ]);
+        }
+
         abort_unless(isset($pages[$slug]), 404);
         [$title, $body, $points] = $pages[$slug];
 
@@ -50,6 +69,31 @@ class PublicController extends Controller
             'body' => $body,
             'points' => $points,
             'ticker' => $this->ticker(),
+        ]);
+    }
+
+    /** Fee schedule and the school's fee policies, all editable by the office. */
+    public function fees(): Response
+    {
+        $heads = DB::table('fee_heads')->where('active', true)->orderBy('category')->orderBy('name')->get();
+        $classes = PublicContent::fees();
+        $extras = $heads->filter(fn ($h) => ! in_array($h->category, ['tuition', 'admission'], true))->map(fn ($h) => [
+            'name' => $h->name, 'amount' => (int) $h->amount, 'class' => $h->class_name, 'frequency' => $h->frequency ?? null, 'category' => $h->category,
+        ])->values()->all();
+        $site = PublicContent::site();
+
+        return $this->render([
+            'kind' => 'fees',
+            'title' => 'Fees & policies',
+            'ticker' => $this->ticker(),
+            'classes' => $classes,
+            'extras' => $extras,
+            'policies' => collect(\App\Support\SitePages::policies())->map(function ($p) {
+                $row = \App\Support\SitePages::find($p['slug']);
+
+                return $p + ['html' => \App\Support\SitePages::html((string) ($row->body ?? ''))];
+            })->all(),
+            'pay' => collect(DB::table('site_settings')->where('key', 'like', 'pay_%')->pluck('value', 'key'))->all() + ['instructions' => DB::table('site_settings')->where('key', 'gateway_instructions')->value('value')],
         ]);
     }
 
@@ -70,6 +114,7 @@ class PublicController extends Controller
             'title' => 'Gallery',
             'ticker' => $this->ticker(),
             'albums' => PublicContent::albums(),
+            'items' => PublicContent::gallery(),
         ]);
     }
 
@@ -262,6 +307,27 @@ class PublicController extends Controller
             'roll' => $roll,
             'result' => $result,
         ]);
+    }
+
+    /** Upcoming events from the Website → Events list, or the built-in ones when none are published. */
+    private function homeEvents(): array
+    {
+        $rows = DB::table('website_events')->where('published', true)->where('starts_on', '>=', today()->toDateString())->orderBy('starts_on')->limit(4)->get();
+        if ($rows->isEmpty()) {
+            return PublicContent::events();
+        }
+
+        return $rows->map(fn ($e) => [
+            'slug' => 'event-'.$e->id, 'href' => '/events', 'day' => \Illuminate\Support\Carbon::parse($e->starts_on)->format('d'), 'month' => \Illuminate\Support\Carbon::parse($e->starts_on)->format('M'),
+            'title' => $e->title, 'place' => $e->venue ?: 'School premises', 'body' => $e->body,
+        ])->all();
+    }
+
+    private function faqList(): array
+    {
+        $rows = DB::table('faqs')->where('published', true)->orderBy('sort_order')->get();
+
+        return $rows->isEmpty() ? PublicContent::faqs() : $rows->map(fn ($f) => ['q' => $f->question, 'a' => $f->answer])->all();
     }
 
     private function render(array $page): Response

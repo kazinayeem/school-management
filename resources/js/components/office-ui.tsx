@@ -52,11 +52,11 @@ export function Field({ label, error, children }: { label: string; error?: strin
     );
 }
 
-export function Table({ headers, empty, children }: { headers: string[]; empty?: string | null; children: ReactNode }) {
+export function Table({ headers, empty, children, busy = false }: { headers: ReactNode[]; empty?: string | null; children: ReactNode; busy?: boolean }) {
     const { t } = useI18n();
 
     return (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className={`overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm transition-opacity ${busy ? 'opacity-60' : ''}`} aria-busy={busy}>
             {empty ? (
                 <p className="px-6 py-14 text-center text-sm text-slate-400">{t(empty)}</p>
             ) : (
@@ -65,7 +65,7 @@ export function Table({ headers, empty, children }: { headers: string[]; empty?:
                         <tr>
                             {headers.map((h, i) => (
                                 <th key={i} className="px-4 py-3 text-start font-semibold">
-                                    {t(h)}
+                                    {typeof h === 'string' ? t(h) : h}
                                 </th>
                             ))}
                         </tr>

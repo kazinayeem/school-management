@@ -4,7 +4,8 @@ import { PickedStudent, StudentPicker } from '@/components/student-picker';
 import { useI18n } from '@/lib/i18n';
 import { router, useForm } from '@inertiajs/react';
 import { Pencil, Power } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { ExportMenu, HeaderCheckbox, Pagination, RowCheckbox, SelectionBanner, useBulkSelection, useListNav, useNavigating, type PaginationMeta } from '@/components/list-kit';
 
 type Child = {
     id: number;
@@ -101,16 +102,37 @@ export default function Parents({
     rows,
     search,
     classes,
+    pagination,
+    filters,
+    exportColumns,
 }: {
     navigation: Nav;
     roleLabel: string;
     rows: Parent[];
     search: string;
     classes: string[];
+    pagination: PaginationMeta;
+    filters: { limit: number; sort: string; dir: string };
+    exportColumns: Record<string, string>;
 }) {
     const { t } = useI18n();
     const [editing, setEditing] = useState<Parent | 'new' | null>(null);
     const [q, setQ] = useState(search);
+    const base = { search, ...filters };
+    const go = useListNav(base);
+    const busy = useNavigating();
+    const sel = useBulkSelection(rows.map((r) => r.id), pagination.total, search);
+    const first = useRef(true);
+    useEffect(() => {
+        if (first.current) {
+            first.current = false;
+
+            return;
+        }
+        const id = setTimeout(() => q !== search && go({ search: q }), 350);
+
+        return () => clearTimeout(id);
+    }, [q]);
 
     return (
         <OfficePage
@@ -124,7 +146,7 @@ export default function Parents({
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
-                        router.get('/app/system/parents', { search: q }, { preserveState: true, replace: true });
+                        go({ search: q });
                     }}
                 >
                     <input
@@ -134,10 +156,14 @@ export default function Parents({
                         placeholder={t('Search name, username or phone')}
                     />
                 </form>
-                <button onClick={() => setEditing('new')} className={`${primaryBtn} ms-auto`}>
-                    {t('New parent account')}
-                </button>
+                <span className="ms-auto flex gap-2">
+                    <ExportMenu dataset="parents" columns={exportColumns} params={base} sel={sel} total={pagination.total} noun="parents" />
+                    <button onClick={() => setEditing('new')} className={primaryBtn}>
+                        {t('New parent account')}
+                    </button>
+                </span>
             </div>
+            <SelectionBanner sel={sel} pageCount={rows.length} total={pagination.total} noun="parents" />
             {editing && (
                 <ParentForm
                     key={editing === 'new' ? 'new' : editing.id}
@@ -147,9 +173,12 @@ export default function Parents({
                 />
             )}
 
-            <Table headers={['Name', 'Username', 'Phone', 'Children', 'Status', '']} empty={rows.length === 0 ? 'No parent accounts found.' : null}>
+            <Table busy={busy} headers={[<HeaderCheckbox key="all" sel={sel} label={t('Select all on this page')} />, 'Name', 'Username', 'Phone', 'Children', 'Status', '']} empty={rows.length === 0 ? 'No parent accounts found.' : null}>
                 {rows.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50">
+                    <tr key={p.id} className={`hover:bg-slate-50 ${sel.isSelected(p.id) ? 'bg-fuchsia-50/50' : ''}`}>
+                        <td className="px-4 py-3">
+                            <RowCheckbox sel={sel} id={p.id} label={`${t('Select')} ${p.name}`} />
+                        </td>
                         <td className="px-4 py-3 font-medium">{p.name}</td>
                         <td className="px-4 py-3">{p.username}</td>
                         <td className="px-4 py-3" dir="ltr">
@@ -190,6 +219,7 @@ export default function Parents({
                     </tr>
                 ))}
             </Table>
+            <Pagination meta={pagination} label="parents" onPage={(page) => go({ page })} onLimit={(limit) => go({ limit, page: 1 })} />
         </OfficePage>
     );
 }

@@ -117,9 +117,13 @@ class OfficeActionController extends Controller
             'date_of_birth' => ['nullable', 'date'],
             'guardian_name' => ['nullable', 'string', 'max:255'],
             'guardian_mobile' => ['nullable', 'string', 'max:30'],
+            ...\App\Support\UserFiles::requestRules(),
         ]);
 
-        $user = \App\Support\StudentEnrollment::enroll($data);
+        $user = \App\Support\StudentEnrollment::enroll(collect($data)->except(array_keys(\App\Support\UserFiles::requestRules()))->all());
+        if ($request->user()->role === 'admin') {
+            \App\Support\UserFiles::saveFromRequest($request, $user);
+        }
 
         return redirect('/app/students/'.$user->id);
     }

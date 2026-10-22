@@ -1,3 +1,4 @@
+import { TableExportMenu as PdfButton } from '@/components/pdf-button';
 import { Badge, Card, inputCls, Nav, OfficePage } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
 import { router } from '@inertiajs/react';
@@ -79,8 +80,28 @@ export default function ExamResults({
                         <option>B</option>
                     </select>
                 </div>
-                <div className="ms-auto flex items-center gap-3">
+                <div className="ms-auto flex flex-wrap items-center gap-3">
                     <Badge tone={published ? 'green' : 'amber'}>{published ? t('Published') : t('Not published')}</Badge>
+                    <PdfButton
+                        build={() => ({
+                            title: 'Results',
+                            subtitle: `${exams.find((x) => x.id === filters.exam)?.name ?? ''} · ${filters.class}${filters.section ? ' ' + filters.section : ''}`,
+                            sections: [
+                                {
+                                    columns: [
+                                        { key: 'pos', label: 'Pos.' }, { key: 'roll', label: 'Roll' }, { key: 'name', label: 'Student' },
+                                        ...subjects.map((s) => ({ key: `s${s.id}`, label: s.name, num: true })),
+                                        { key: 'total', label: 'Total', num: true }, { key: 'gpa', label: 'GPA', num: true }, { key: 'grade', label: 'Grade' },
+                                    ],
+                                    rows: rows.map((r) => ({
+                                        pos: r.class_position ?? '', roll: r.roll_no, name: r.name,
+                                        ...Object.fromEntries(subjects.map((s) => [`s${s.id}`, r.cells[String(s.id)] ? (r.cells[String(s.id)].absent ? 'Abs' : r.cells[String(s.id)].marks) : ''])),
+                                        total: r.total, gpa: r.gpa ?? '', grade: r.grade ?? '',
+                                    })),
+                                },
+                            ],
+                        })}
+                    />
                     <button onClick={() => window.print()} className="flex items-center gap-1 rounded-lg border px-4 py-2 text-sm hover:bg-slate-50">
                         <Printer className="h-4 w-4" /> {t('Print')}
                     </button>

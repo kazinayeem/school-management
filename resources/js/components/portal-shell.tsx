@@ -1,4 +1,7 @@
 import { Avatar } from '@/components/avatar';
+import { CommsButtons } from '@/components/comms-header';
+import { MadeBy } from '@/components/made-by';
+import { AnimatedPage } from '@/components/motion';
 import { LanguageMenu, ThemeToggle } from '@/components/preferences';
 import { useI18n } from '@/lib/i18n';
 import { type SharedData } from '@/types';
@@ -11,14 +14,18 @@ import {
     CalendarDays,
     CalendarOff,
     FileText,
+    IdCard,
+    LifeBuoy,
+    Mail,
     LayoutGrid,
+    PanelLeft,
     LogOut,
     User,
     Users,
     Wallet,
     type LucideIcon,
 } from 'lucide-react';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 
 const icons: Record<string, LucideIcon> = {
     BookOpen,
@@ -27,6 +34,9 @@ const icons: Record<string, LucideIcon> = {
     CalendarDays,
     CalendarOff,
     FileText,
+    IdCard,
+    LifeBuoy,
+    Mail,
     LayoutGrid,
     User,
     Users,
@@ -45,24 +55,32 @@ export function PortalShell({
 }: PropsWithChildren<{ caption: string; roleLabel: string; title: string; notices: Notice[]; query?: string }>) {
     const { auth, menu, name, branding } = usePage<SharedData>().props;
     const path = usePage().url.split('?')[0];
-    const [open, setOpen] = useState(true);
+    const [open, setOpen] = useState(false);
+    const [narrow, setNarrow] = useState(false);
     const [bell, setBell] = useState(false);
     const { t } = useI18n();
     const home = menu[0]?.url ?? '/dashboard';
     const sessionLabel = roleLabel === 'Student' ? 'Session 2026' : 'Session';
 
+    // On a phone the menu is a drawer that closes after you pick a page.
+    useEffect(() => router.on('navigate', () => setOpen(false)), []);
+
     return (
         <div className="themed flex min-h-screen bg-[#f4f6fb] text-slate-800">
-            <aside className={`flex shrink-0 flex-col bg-[#0c1222] text-slate-300 transition-all ${open ? 'w-[260px]' : 'w-[76px]'}`}>
-                <Link href={home + query} className="flex h-20 items-center px-5 text-white" aria-label={name}>
-                    <img
-                        src={branding.logoWhite}
-                        alt={name}
-                        className={`${open ? 'h-11 w-auto max-w-[200px]' : 'h-8 w-8'} object-contain object-left`}
-                    />
+            {open && <button aria-label={t('Close menu')} className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setOpen(false)} />}
+            <aside
+                className={`admin-sidebar fixed inset-y-0 start-0 z-40 flex flex-col border-e border-slate-200 bg-white text-slate-600 transition-all duration-200 ${narrow ? 'w-[76px]' : 'w-[260px]'} ${
+                    open ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full lg:translate-x-0'
+                }`}
+            >
+                <Link href={home + query} className="flex h-20 shrink-0 items-center px-5" aria-label={name}>
+                    <>
+<img src={branding.logo} alt={name} className={`${narrow ? 'h-8 w-8' : 'h-11 w-auto max-w-[200px]'} object-contain object-left` + ' dark:hidden'} />
+<img src={branding.logoWhite} alt={name} className={`${narrow ? 'h-8 w-8' : 'h-11 w-auto max-w-[200px]'} object-contain object-left` + ' hidden dark:block'} />
+</>
                 </Link>
-                {open && <p className="px-5 pb-3 text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase">{t(caption)}</p>}
-                <nav className="flex-1 space-y-1 overflow-y-auto px-3">
+                {!narrow && <p className="px-5 pb-3 text-[11px] font-semibold tracking-[0.16em] text-slate-400 uppercase">{t(caption)}</p>}
+                <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
                     {menu.map((item) => {
                         const Icon = icons[item.icon] ?? LayoutGrid;
                         const href = item.url + query;
@@ -72,90 +90,72 @@ export function PortalShell({
                             <Link
                                 key={item.url}
                                 href={href}
-                                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                                    active
-                                        ? 'bg-gradient-to-r from-[#6d1167] to-[#4c1d95] text-white shadow-lg shadow-fuchsia-900/20'
-                                        : 'hover:bg-white/5 hover:text-white'
+                                aria-current={active ? 'page' : undefined}
+                                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-slate-100 hover:text-slate-900 ${
+                                    active ? 'bg-gradient-to-r from-brand to-brand-2 shadow-sm font-medium text-white hover:text-white' : ''
                                 }`}
                             >
                                 <Icon className="h-4 w-4 shrink-0" />
-                                {open && <span className="truncate">{t(item.title)}</span>}
+                                {!narrow && <span className="truncate">{t(item.title)}</span>}
                             </Link>
                         );
                     })}
                 </nav>
-                <button
-                    type="button"
-                    aria-label="Collapse sidebar"
-                    onClick={() => setOpen(!open)}
-                    className="m-3 flex items-center justify-center rounded-xl py-2 text-lg text-slate-500 hover:bg-white/5 hover:text-white"
-                >
-                    «
+                <button type="button" aria-label={t('Collapse sidebar')} onClick={() => setNarrow(!narrow)} className="m-3 hidden items-center justify-center rounded-lg py-2 text-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:flex">
+                    <span className="rtl:rotate-180">«</span>
                 </button>
             </aside>
 
-            <div className="flex min-w-0 flex-1 flex-col">
-                <header className="flex h-[66px] items-center justify-between gap-3 border-b border-slate-200 bg-white px-5">
-                    <p className="text-sm text-slate-500">
-                        <Link href={home + query} className="hover:text-slate-800">
-                            {t('Home')}
-                        </Link>
-                        <span className="px-1">/</span>
-                        <span className="font-medium text-slate-800">{t(title)}</span>
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <span className="hidden items-center gap-1.5 rounded-full bg-pink-50 px-3 py-1.5 text-xs font-medium text-[#b31299] sm:inline-flex">
-                            <CalendarDays className="h-3.5 w-3.5" /> {sessionLabel}
-                        </span>
+            <div className={`flex min-w-0 flex-1 flex-col ${narrow ? 'lg:ps-[76px]' : 'lg:ps-[260px]'}`}>
+                <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-slate-200 bg-white/90 px-3 backdrop-blur sm:gap-4 sm:px-6">
+                    <button aria-label={t('Open menu')} onClick={() => setOpen(!open)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden">
+                        <PanelLeft className="h-5 w-5" />
+                    </button>
+                    <div className="min-w-0">
+                        <h1 className="truncate text-base font-semibold text-slate-900">{t(title)}</h1>
+                        <p className="hidden text-xs text-slate-400 sm:block">{t(sessionLabel)}</p>
+                    </div>
+                    <div className="relative ms-auto flex shrink-0 items-center gap-1 sm:gap-3">
+                        <LanguageMenu className="hidden sm:block" />
+                        <ThemeToggle />
+                        <CommsButtons />
                         <div className="relative">
-                            <button
-                                type="button"
-                                aria-label="Notifications"
-                                onClick={() => setBell(!bell)}
-                                className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                            >
+                            <button type="button" title={t('School notices')} aria-label={t('Notices')} aria-expanded={bell} onClick={() => setBell(!bell)} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100">
                                 <Bell className="h-4 w-4" />
-                                {notices.length > 0 && (
-                                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                                        {notices.length}
-                                    </span>
-                                )}
+                                {notices.length > 0 && <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500" />}
                             </button>
                             {bell && (
-                                <div className="absolute end-0 z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xl">
-                                    {notices.length === 0 ? (
-                                        <p className="py-4 text-center text-sm text-slate-400">{t('No notices yet.')}</p>
-                                    ) : (
-                                        notices.map((notice) => (
-                                            <div key={notice.title} className="border-b border-slate-100 py-2 last:border-0">
-                                                <div className="font-semibold">{notice.title}</div>
-                                                <div className="text-xs text-slate-500">{notice.date}</div>
-                                            </div>
-                                        ))
-                                    )}
+                                <div className="absolute end-0 z-30 mt-2 w-80 max-w-[85vw] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                                    <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold">{t('Notices')}</p>
+                                    <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
+                                        {notices.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-400">{t('Nothing new.')}</li>}
+                                        {notices.map((n, i) => (
+                                            <li key={i} className="px-4 py-3">
+                                                <p className="text-sm font-medium">{n.title}</p>
+                                                <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{n.body}</p>
+                                                <p className="mt-1 text-[11px] text-slate-400">{n.date}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             )}
                         </div>
-                        <LanguageMenu className="hidden sm:block" />
-                        <ThemeToggle />
-                        <div className="flex items-center gap-2 border-s border-slate-200 ps-2">
+                        <div className="flex items-center gap-2 border-s border-slate-200 ps-2 sm:gap-3 sm:ps-3">
                             <Avatar name={auth.user.name} src={auth.user.photo_url} className="h-8 w-8 text-sm" />
-                            <span className="hidden leading-tight sm:block">
-                                <span className="block text-sm font-semibold text-slate-800">{auth.user.name}</span>
-                                <span className="block text-[11px] text-slate-400">{t(roleLabel)}</span>
+                            <span className="hidden leading-tight md:block">
+                                <span className="block text-sm font-medium text-slate-900">{auth.user.name}</span>
+                                <span className="block text-xs text-slate-400">{t(roleLabel)}</span>
                             </span>
+                            <button aria-label={t('Log out')} onClick={() => router.post(route('logout'))} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+                                <LogOut className="h-4 w-4" />
+                            </button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => router.post(route('logout'))}
-                            aria-label="Log out"
-                            className="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                        >
-                            <LogOut className="h-4 w-4" />
-                        </button>
                     </div>
                 </header>
-                <main className="flex-1 p-5">{children}</main>
+                <main className="flex-1 p-5">
+                    <AnimatedPage>{children}</AnimatedPage>
+                </main>
+                <MadeBy className="pb-4" />
             </div>
         </div>
     );

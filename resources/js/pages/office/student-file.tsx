@@ -1,3 +1,5 @@
+import { useUrlTab } from '@/hooks/use-url-tab';
+import { UserFiles, type UserFile } from '@/components/user-files';
 import { Avatar, PhotoUpload } from '@/components/avatar';
 import { Badge, Card, Field, ghostBtn, inputCls, money, Nav, OfficePage, primaryBtn, Table } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
@@ -106,20 +108,23 @@ type Props = {
     documents: { id: number; type: string; serial_no: string; issue_date: string }[];
     notes: Note[];
     timeline: { date: string; type: string; title: string; detail: string }[];
-    can: { edit: boolean; delete: boolean };
+    can: { edit: boolean; delete: boolean; files?: boolean };
+    files: UserFile[];
+    fileKinds: Record<string, string>;
 };
 
-const tabs = ['overview', 'academic', 'attendance', 'fees', 'library', 'transport', 'certificates', 'leave', 'notes'] as const;
+const tabs = ['overview', 'results', 'attendance', 'fees', 'library', 'transport', 'certificates', 'leave', 'documents', 'notes-conduct'] as const;
 const tabLabel: Record<string, string> = {
     overview: 'Overview',
-    academic: 'Results',
+    results: 'Results',
     attendance: 'Attendance',
     fees: 'Fees',
     library: 'Library',
     transport: 'Transport',
     certificates: 'Certificates',
     leave: 'Leave',
-    notes: 'Notes & conduct',
+    documents: 'Documents',
+    'notes-conduct': 'Notes & conduct',
 };
 const kindTone = { violation: 'red', commendation: 'green', health: 'amber', other: 'slate' } as const;
 const kindLabel = { violation: 'Rule violation', commendation: 'Commendation', health: 'Health', other: 'Other' } as const;
@@ -251,7 +256,7 @@ function NoteForm({ studentId }: { studentId: number }) {
 
 export default function StudentFile(p: Props) {
     const { t } = useI18n();
-    const [tab, setTab] = useState<(typeof tabs)[number]>('overview');
+    const [tab, setTab] = useUrlTab(tabs);
     const s = p.student;
     const violations = p.notes.filter((n) => n.kind === 'violation').length;
     const latest = p.results[0];
@@ -286,14 +291,12 @@ export default function StudentFile(p: Props) {
                     </p>
                     <div className="flex flex-wrap gap-2 pt-2">
                         <a
-                            href={`/app/students/${s.id}/transcript`}
-                            target="_blank"
-                            rel="noreferrer"
+                            href={`/students/${s.id}/transcript.pdf`}
                             className={`${primaryBtn} flex items-center gap-2`}
                         >
                             <FileText className="h-4 w-4" /> {t('Transcript (PDF)')}
                         </a>
-                        <a href={`/app/students/${s.id}/print`} target="_blank" rel="noreferrer" className={`${ghostBtn} flex items-center gap-2`}>
+                        <a href={`/students/${s.id}/file.pdf`} className={`${ghostBtn} flex items-center gap-2`}>
                             <Printer className="h-4 w-4" /> {t('Full student file (PDF)')}
                         </a>
                         <a href={`/app/students/${s.id}/export`} className={`${ghostBtn} flex items-center gap-2`}>
@@ -337,7 +340,7 @@ export default function StudentFile(p: Props) {
                         className={`rounded-lg px-3 py-1.5 text-sm font-medium ${tab === k ? 'bg-fuchsia-700 text-white' : 'hover:bg-slate-100'}`}
                     >
                         {t(tabLabel[k])}
-                        {k === 'notes' && p.notes.length > 0 && <span className="ms-1 text-xs opacity-80">({p.notes.length})</span>}
+                        {k === 'notes-conduct' && p.notes.length > 0 && <span className="ms-1 text-xs opacity-80">({p.notes.length})</span>}
                     </button>
                 ))}
             </div>
@@ -397,7 +400,7 @@ export default function StudentFile(p: Props) {
                 </div>
             )}
 
-            {tab === 'academic' &&
+            {tab === 'results' &&
                 (p.results.length === 0 ? (
                     <Card>
                         <p className="text-sm text-slate-400">{t('No published results yet.')}</p>
@@ -591,7 +594,13 @@ export default function StudentFile(p: Props) {
                 </Table>
             )}
 
-            {tab === 'notes' && (
+            {tab === 'documents' && (
+                <Card className="space-y-3">
+                    <UserFiles userId={s.id} files={p.files} kinds={p.fileKinds} canManage={Boolean(p.can.files)} />
+                </Card>
+            )}
+
+            {tab === 'notes-conduct' && (
                 <div className="space-y-4">
                     {p.can.edit && <NoteForm studentId={s.id} />}
                     {p.notes.length === 0 ? (

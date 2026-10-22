@@ -14,12 +14,14 @@ type Row = {
     value: number;
     reason: string | null;
     active: number;
+    applies_to?: string;
+    type?: string;
 };
 
 export default function Waivers({ navigation, roleLabel, rows }: { navigation: Nav; roleLabel: string; rows: Row[] }) {
     const { t } = useI18n();
     const [picked, setPicked] = useState<PickedStudent | null>(null);
-    const form = useForm({ student: '', kind: 'percent', value: '', reason: '' });
+    const form = useForm({ student: '', kind: 'percent', value: '', reason: '', applies_to: 'tuition', type: 'scholarship' });
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -41,7 +43,7 @@ export default function Waivers({ navigation, roleLabel, rows }: { navigation: N
         >
             <form onSubmit={submit}>
                 <Card className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4">
                         <StudentSelect
                             label="Student"
                             value={picked}
@@ -66,6 +68,25 @@ export default function Waivers({ navigation, roleLabel, rows }: { navigation: N
                                 onChange={(e) => form.setData('value', e.target.value)}
                             />
                         </Field>
+                        <Field label="Applies to" error={form.errors.applies_to}>
+                            <select className={inputCls} value={form.data.applies_to} onChange={(e) => form.setData('applies_to', e.target.value)}>
+                                <option value="tuition">{t('Tuition only')}</option>
+                                <option value="all">{t('All fees')}</option>
+                                <option value="admission">{t('Admission fee')}</option>
+                                <option value="lab">{t('Lab fees')}</option>
+                                <option value="exam">{t('Exam fee')}</option>
+                                <option value="transport">{t('Transport')}</option>
+                            </select>
+                        </Field>
+                        <Field label="Kind of discount" error={form.errors.type}>
+                            <select className={inputCls} value={form.data.type} onChange={(e) => form.setData('type', e.target.value)}>
+                                <option value="scholarship">{t('Scholarship / merit')}</option>
+                                <option value="sibling">{t('Sibling discount')}</option>
+                                <option value="need">{t('Financial need')}</option>
+                                <option value="staff_child">{t('Staff child')}</option>
+                                <option value="other">{t('Other')}</option>
+                            </select>
+                        </Field>
                         <Field label="Reason" error={form.errors.reason}>
                             <input className={inputCls} value={form.data.reason} onChange={(e) => form.setData('reason', e.target.value)} />
                         </Field>
@@ -76,7 +97,7 @@ export default function Waivers({ navigation, roleLabel, rows }: { navigation: N
                 </Card>
             </form>
 
-            <Table headers={['Student', 'Class', 'Waiver', 'Reason', 'Status', '']} empty={rows.length === 0 ? 'No waivers yet.' : null}>
+            <Table headers={['Student', 'Class', 'Waiver', 'Applies to', 'Reason', 'Status', '']} empty={rows.length === 0 ? 'No waivers yet.' : null}>
                 {rows.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50">
                         <td className="px-4 py-3">
@@ -84,6 +105,7 @@ export default function Waivers({ navigation, roleLabel, rows }: { navigation: N
                         </td>
                         <td className="px-4 py-3">{r.class_name ? t(r.class_name) : ''}</td>
                         <td className="px-4 py-3">{r.kind === 'percent' ? `${r.value}%` : r.value.toLocaleString()}</td>
+                        <td className="px-4 py-3">{t(r.applies_to === 'all' ? 'All fees' : (r.applies_to ?? 'tuition'))}</td>
                         <td className="px-4 py-3">{r.reason}</td>
                         <td className="px-4 py-3">
                             <button onClick={() => router.put(`/app/fees/waivers/${r.id}`, {}, { preserveScroll: true })}>

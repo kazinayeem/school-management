@@ -1,8 +1,10 @@
+import { Pagination, type PaginationMeta } from '@/components/list-kit';
+import { TableExportMenu as PdfButton } from '@/components/pdf-button';
 import { Card, ghostBtn, inputCls, money, Nav, OfficePage, primaryBtn } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
 import { router } from '@inertiajs/react';
 import { Printer, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type Filter = { name: string; label: string; type: 'date' | 'select' | 'text'; options?: { value: string; label: string }[]; with?: Filter };
 type Column = { key: string; label: string; money?: boolean; num?: boolean };
@@ -33,6 +35,33 @@ export default function Report({
     actions?: Action[];
 }) {
     const { t } = useI18n();
+    // Long reports show 20 rows at a time; printing and every export still cover all of them.
+    const [paging, setPaging] = useState<Record<number, { page: number; limit: number }>>({});
+    const [printAll, setPrintAll] = useState(false);
+    useEffect(() => {
+        const before = () => setPrintAll(true);
+        const after = () => setPrintAll(false);
+        window.addEventListener('beforeprint', before);
+        window.addEventListener('afterprint', after);
+
+        return () => {
+            window.removeEventListener('beforeprint', before);
+            window.removeEventListener('afterprint', after);
+        };
+    }, []);
+    const metaFor = (i: number, total: number): PaginationMeta => {
+        const limit = paging[i]?.limit ?? 20;
+        const pages = Math.max(1, Math.ceil(total / limit));
+        const page = Math.min(paging[i]?.page ?? 1, pages);
+
+        return { page, limit, total, totalPages: pages, from: total === 0 ? 0 : (page - 1) * limit + 1, to: Math.min(page * limit, total) };
+    };
+    const slice = <T,>(i: number, rows: T[]): T[] => {
+        if (printAll || rows.length <= 10) return rows;
+        const m = metaFor(i, rows.length);
+
+        return rows.slice((m.page - 1) * m.limit, m.page * m.limit);
+    };
     const [state, setState] = useState<Record<string, string>>(values);
     const apply = (next: Record<string, string>) => {
         setState(next);
@@ -87,10 +116,26 @@ export default function Report({
                         </button>
                     ),
                 )}
-                <button onClick={() => window.print()} className={`${ghostBtn} ms-auto flex items-center gap-1`}>
-                    <Printer className="h-4 w-4" /> {t('Print')}
-                </button>
+                <span className="ms-auto flex flex-wrap items-start gap-2">
+                    <PdfButton
+                        build={() => ({
+                            title,
+                            subtitle,
+                            filters: Object.entries(values).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join('  ·  '),
+                            summary,
+                            sections: sections.map((s) => ({ title: s.title, columns: s.columns, rows: s.rows as Record<string, unknown>[], footer: (s as { footer?: Record<string, unknown> }).footer ?? null })),
+                        })}
+                    />
+                    <button onClick={() => window.print()} className={`${ghostBtn} flex items-center gap-1`}>
+                        <Printer className="h-4 w-4" /> {t('Print')}
+                    </button>
+                </span>
             </Card>
+
+            <div className="hidden print:block">
+                <h2 className="text-xl font-bold">{t(title)}</h2>
+                <p className="text-sm">{Object.entries(values).filter(([, v]) => v).map(([k, v]) => `${t(k)}: ${v}`).join('  ·  ')}</p>
+            </div>
 
             {summary.length > 0 && (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -130,7 +175,7 @@ export default function Report({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {section.rows.map((row, i) => (
+                                    {slice(idx, section.rows).map((row, i) => (
                                         <tr key={i} className="hover:bg-slate-50">
                                             {section.columns.map((c) => (
                                                 <td
@@ -180,6 +225,16 @@ export default function Report({
                             </table>
                         )}
                     </div>
+                    {section.rows.length > 10 && !printAll && (
+                        <div className="no-print">
+                            <Pagination
+                                meta={metaFor(idx, section.rows.length)}
+                                label="records"
+                                onPage={(page) => setPaging({ ...paging, [idx]: { ...(paging[idx] ?? { limit: 20 }), page } })}
+                                onLimit={(limit) => setPaging({ ...paging, [idx]: { page: 1, limit } })}
+                            />
+                        </div>
+                    )}
                 </div>
             ))}
         </OfficePage>

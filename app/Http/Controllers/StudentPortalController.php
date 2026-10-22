@@ -25,6 +25,8 @@ class StudentPortalController extends Controller
             'page' => $page,
             'profile' => PortalData::profile($student),
             'notices' => PortalData::notices(),
+            'charts' => $page === 'home' ? fn () => \App\Support\DashboardCharts::student($student) : null,
+            'files' => $page === 'documents' ? \App\Support\UserFiles::listFor($student->id) : [],
             'data' => $this->payload($student, $page),
         ]);
     }
@@ -113,7 +115,7 @@ class StudentPortalController extends Controller
 
     private function known(string $page): void
     {
-        abort_unless(in_array($page, ['home', 'routine', 'calendar', 'attendance', 'homework', 'results', 'fees', 'library', 'transport', 'documents', 'leave', 'profile'], true), 404);
+        abort_unless(in_array($page, ['home', 'routine', 'calendar', 'attendance', 'homework', 'results', 'admit-card', 'fees', 'library', 'transport', 'documents', 'leave', 'profile'], true), 404);
     }
 
     private function payload(User $student, string $page): mixed
@@ -123,9 +125,10 @@ class StudentPortalController extends Controller
         return match ($page) {
             'routine' => PortalData::routine($profile),
             'calendar' => PortalData::calendar(),
-            'attendance' => PortalData::attendance($student),
+            'attendance' => PortalData::attendance($student, request()->query('from'), request()->query('to')),
             'homework' => PortalData::homework($student),
             'results' => PortalData::results($student),
+            'admit-card' => \App\Support\AdmitCards::forStudent($student),
             'fees' => PortalData::fees($student),
             'library' => PortalData::library($student),
             'transport' => PortalData::bus($student),

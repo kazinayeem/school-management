@@ -1,3 +1,6 @@
+import { StudentInsights, type StudentCharts } from '@/components/charts/student-insights';
+import { AnimatedPage, Swap } from '@/components/motion';
+import { UserFiles, type UserFile } from '@/components/user-files';
 import { ProfileForm } from '@/components/portal-profile';
 import { PortalShell } from '@/components/portal-shell';
 import {
@@ -10,6 +13,8 @@ import {
     LeaveBoard,
     LibraryBoard,
     ResultsBoard,
+    AdmitBoard,
+    type AdmitData,
     RoutineBoard,
     type Attendance,
     type Bus,
@@ -22,7 +27,7 @@ import {
     type Results,
     type Routine,
 } from '@/components/portal-views';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { CalendarCheck, Eye, GraduationCap, School, Wallet, type LucideIcon } from 'lucide-react';
 
 type Profile = {
@@ -46,6 +51,7 @@ const titles: Record<string, string> = {
     attendance: 'My Attendance',
     homework: 'My Homework',
     results: 'My Results',
+    'admit-card': 'Admit Card',
     fees: 'My Fees',
     library: 'My Library',
     transport: 'My Bus',
@@ -59,30 +65,54 @@ export default function StudentPortal({
     profile,
     notices,
     data,
+    files = [],
+    charts,
 }: {
     page: string;
+    charts?: StudentCharts;
     profile: Profile;
     notices: { title: string; body: string; date: string }[];
+    files?: UserFile[];
     data: Routine | Attendance | HomeworkItem[] | Results | Fees | Library | Bus | DocumentRow[] | LeaveRow[] | CalendarData | null;
 }) {
+    const { auth } = usePage<{ auth: { user: { id: number } } }>().props;
     const title = titles[page] ?? 'Home';
 
     return (
         <PortalShell caption="Student portal" roleLabel="Student" title={title} notices={notices}>
             <Head title={title} />
-            {page === 'home' && <Home profile={profile} />}
+            {page === 'home' && (
+                <div className="space-y-5">
+                    <Home profile={profile} />
+                    <StudentInsights charts={charts} name={profile.name} />
+                </div>
+            )}
             {page === 'routine' && <RoutineBoard routine={data as Routine} />}
             {page === 'calendar' && <CalendarBoard calendar={data as CalendarData} />}
             {page === 'attendance' && <AttendanceBoard attendance={data as Attendance} />}
             {page === 'homework' && <HomeworkBoard items={data as HomeworkItem[]} canSubmit />}
-            {page === 'results' && <ResultsBoard results={data as Results} />}
+            {page === 'results' && (
+                <>
+                    <div className="mb-3 flex justify-end"><a href={`/students/${auth.user.id}/transcript.pdf`} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">Download transcript (PDF)</a></div>
+                    <ResultsBoard results={data as Results} />
+                </>
+            )}
+            {page === 'admit-card' && <AdmitBoard admit={data as unknown as AdmitData} />}
             {page === 'fees' && <FeesBoard fees={data as Fees} />}
             {page === 'library' && <LibraryBoard library={data as Library} />}
             {page === 'transport' && <BusBoard bus={data as Bus} />}
-            {page === 'documents' && <DocumentsBoard documents={data as DocumentRow[]} />}
+            {page === 'documents' && (
+                <div className="space-y-6">
+                    <DocumentsBoard documents={data as DocumentRow[]} />
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                        <h2 className="mb-3 font-semibold">Uploaded documents</h2>
+                        <UserFiles files={files} />
+                    </section>
+                </div>
+            )}
             {page === 'leave' && <LeaveBoard leaves={data as LeaveRow[]} action={route('student.leave.store')} />}
-            {page === 'profile' && <ProfileForm profile={profile} passwordAction={route('student.password.update')} profileAction={route('student.profile.update')} />}
-            {!['home', 'homework', 'results', 'fees'].includes(page) && <p className="mt-4 text-sm text-slate-500">{blurb(page)}</p>}
+            {page === 'profile' && <ProfileForm profile={profile} passwordAction="/profile/password" profileAction="/profile" />}
+            {!['home', 'homework', 'results', 'fees', 'admit-card'].includes(page) && <p className="mt-4 text-sm text-slate-500">{blurb(page)}</p>}
         </PortalShell>
     );
 }
@@ -110,7 +140,7 @@ function Home({ profile }: { profile: Profile }) {
 
     return (
         <div className="space-y-5">
-            <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#c01e9c] via-[#b517a6] to-[#7c3aed] px-6 py-5 text-white shadow-lg shadow-fuchsia-500/20">
+            <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-brand-light via-brand-light to-brand-2 px-6 py-5 text-white shadow-lg shadow-fuchsia-500/20">
                 <div className="relative z-10 flex flex-wrap items-center gap-4">
                     {profile.photo ? (
                         <img src={profile.photo} alt={profile.name} className="h-16 w-16 rounded-2xl border-2 border-white/40 object-cover shadow-md" />
@@ -132,7 +162,7 @@ function Home({ profile }: { profile: Profile }) {
                         <Link href="/student/results" className="rounded-lg bg-white/15 px-4 py-2 text-xs font-semibold backdrop-blur transition hover:bg-white/25">
                             My Results
                         </Link>
-                        <Link href="/student/fees" className="rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#a3128f] shadow-sm">
+                        <Link href="/student/fees" className="rounded-lg bg-white px-4 py-2 text-xs font-bold text-brand-dark shadow-sm">
                             My Fees
                         </Link>
                     </div>
@@ -150,7 +180,7 @@ function Home({ profile }: { profile: Profile }) {
                 />
                 <SummaryCard
                     icon={GraduationCap}
-                    className="bg-gradient-to-br from-[#c2189b] to-[#df1fa9] text-white"
+                    className="bg-gradient-to-br from-brand-light to-brand-light text-white"
                     iconClass="bg-white/20 text-white"
                     label="Latest GPA"
                     value={profile.latest_result?.gpa ?? '—'}
@@ -181,11 +211,11 @@ function Home({ profile }: { profile: Profile }) {
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <p className="text-sm text-slate-500">{profile.latest_result.exam}</p>
-                                    <p className="mt-2 text-4xl font-bold text-[#b31299]">GPA {profile.latest_result.gpa}</p>
+                                    <p className="mt-2 text-4xl font-bold text-brand">GPA {profile.latest_result.gpa}</p>
                                 </div>
                                 <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600">Published</span>
                             </div>
-                            <Link href="/student/results" className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[#b31299] px-4 text-sm font-semibold text-white transition hover:bg-[#9a0e84]">
+                            <Link href="/student/results" className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-dark">
                                 <Eye className="h-4 w-4" /> View all results
                             </Link>
                         </>

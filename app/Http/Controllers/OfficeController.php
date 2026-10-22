@@ -27,6 +27,7 @@ class OfficeController extends Controller
             return Inertia::render('office/home', [
                 ...$shared,
                 'dashboard' => OfficeData::home($user),
+                'charts' => fn () => \App\Support\DashboardCharts::office($user, $request),
             ]);
         }
 

@@ -19,7 +19,7 @@ class ParentPortalController extends Controller
     {
         $parent = $this->parent($request);
         $page = $page ?: 'home';
-        abort_unless(in_array($page, ['home', 'attendance', 'routine', 'calendar', 'documents', 'leave', 'homework', 'library', 'transport', 'conduct', 'profile'], true), 404);
+        abort_unless(in_array($page, ['home', 'attendance', 'routine', 'calendar', 'documents', 'leave', 'homework', 'library', 'transport', 'conduct', 'fees', 'admit-card', 'profile'], true), 404);
 
         $children = $parent->students()->with('profile')->orderBy('name')->get();
         abort_if($children->isEmpty(), 404);
@@ -37,12 +37,10 @@ class ParentPortalController extends Controller
                 'section' => $child->profile?->section,
             ])->values(),
             'profile' => PortalData::profile($selected),
-            'account' => [
-                'name' => $parent->name,
-                'email' => $parent->email,
-                'phone' => $parent->phone,
-            ],
+            'account' => \App\Support\ProfileData::for($parent),
             'notices' => PortalData::notices(),
+            'charts' => $page === 'home' ? fn () => \App\Support\DashboardCharts::student($selected) : null,
+            'files' => $page === 'documents' ? \App\Support\UserFiles::listFor($selected->id) : [],
             'data' => $this->payload($selected, $page),
         ]);
     }
@@ -123,14 +121,16 @@ class ParentPortalController extends Controller
                 'results' => PortalData::results($child),
                 'fees' => PortalData::fees($child),
             ],
+            'admit-card' => \App\Support\AdmitCards::forStudent($child),
             'routine' => $child->profile ? PortalData::routine($child->profile) : ['days' => [], 'periods' => []],
             'calendar' => PortalData::calendar(),
-            'attendance' => PortalData::attendance($child),
+            'attendance' => PortalData::attendance($child, request()->query('from'), request()->query('to')),
             'homework' => PortalData::homework($child),
             'library' => PortalData::library($child),
             'transport' => PortalData::bus($child),
             'documents' => PortalData::documents($child),
             'leave' => PortalData::leaves($child),
+            'fees' => PortalData::fees($child),
             'conduct' => \Illuminate\Support\Facades\DB::table('student_notes')->where('user_id', $child->id)->where('visible_to_parent', 1)
                 ->orderByDesc('occurred_on')->get(['id', 'kind', 'severity', 'title', 'details', 'action_taken', 'occurred_on'])->all(),
             default => null,

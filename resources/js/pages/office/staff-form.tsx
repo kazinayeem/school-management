@@ -1,6 +1,7 @@
 import { PhotoUpload } from '@/components/avatar';
 import { Card, Field, ghostBtn, inputCls, Nav, OfficePage, primaryBtn } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
+import { DocumentInputs, UserFiles, type UserFile } from '@/components/user-files';
 import { Link, useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
 
@@ -21,7 +22,7 @@ type Staff = {
     address: string | null;
 };
 
-export default function StaffForm({ navigation, roleLabel, staff }: { navigation: Nav; roleLabel: string; staff: Staff | null }) {
+export default function StaffForm({ navigation, roleLabel, staff, files = [], kinds = {} }: { navigation: Nav; roleLabel: string; staff: Staff | null; files?: UserFile[]; kinds?: Record<string, string> }) {
     const { t } = useI18n();
     const form = useForm({
         name: staff?.name ?? '',
@@ -35,12 +36,15 @@ export default function StaffForm({ navigation, roleLabel, staff }: { navigation
         joined_on: staff?.joined_on ?? '',
         address: staff?.address ?? '',
         is_active: staff ? Boolean(staff.is_active) : true,
+        doc_birth_certificate: null as File | null,
+        doc_nid: null as File | null,
+        doc_previous_certificate: null as File | null,
     });
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
         if (staff) form.put(`/app/staff/${staff.id}`);
-        else form.post('/app/staff');
+        else form.post('/app/staff', { forceFormData: true });
     };
     const text = (name: keyof typeof form.data, label: string, type = 'text') => (
         <Field label={label} error={form.errors[name as keyof typeof form.errors]}>
@@ -97,6 +101,7 @@ export default function StaffForm({ navigation, roleLabel, staff }: { navigation
                         </label>
                     </div>
                     {form.errors.is_active && <p className="text-sm text-red-600">{t(form.errors.is_active)}</p>}
+                    {!staff && <DocumentInputs kinds={kinds} data={form.data} setData={form.setData as never} errors={form.errors as Record<string, string>} />}
                     <div className="flex gap-3">
                         <button disabled={form.processing} className={primaryBtn}>
                             {t('Save')}
@@ -107,6 +112,12 @@ export default function StaffForm({ navigation, roleLabel, staff }: { navigation
                     </div>
                 </Card>
             </form>
+            {staff && (
+                <Card className="space-y-3">
+                    <h2 className="font-semibold">{t('Documents')}</h2>
+                    <UserFiles userId={staff.id} files={files} kinds={kinds} canManage />
+                </Card>
+            )}
         </OfficePage>
     );
 }

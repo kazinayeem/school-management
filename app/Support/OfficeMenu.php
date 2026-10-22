@@ -12,7 +12,25 @@ class OfficeMenu
     /** @return list<array{caption: ?string, items: list<array<string, mixed>>}> */
     public static function for(string $role): array
     {
-        return $role === 'admin' ? self::admin() : self::filter($role, self::admin());
+        $card = ['label' => 'My ID Card', 'href' => '/app/me/card', 'icon' => 'IdCard'];
+        $talk = [['label' => 'Messages', 'href' => '/app/messages', 'icon' => 'Mail'], ['label' => 'Support Tickets', 'href' => '/app/tickets', 'icon' => 'LifeBuoy']];
+        $profile = ['label' => 'My Profile', 'href' => '/app/profile', 'icon' => 'UserCog'];
+        if ($role === 'admin') {
+            $menu = self::admin();
+            array_splice($menu[0]['items'], 1, 0, [$profile, $card, ...$talk]);
+
+            return $menu;
+        }
+
+        $menu = self::filter($role, self::admin());
+        $mine = [$profile, ['label' => 'My HR', 'href' => '/app/me', 'icon' => 'UserCog'], $card, ...$talk];
+        if ($menu !== []) {
+            array_splice($menu[0]['items'], 1, 0, $mine);
+        } else {
+            $menu[] = ['caption' => null, 'items' => $mine];
+        }
+
+        return $menu;
     }
 
     public static function allows(string $role, string $path): bool
@@ -44,6 +62,10 @@ class OfficeMenu
             if ($item['href'] === $path) {
                 return $item;
             }
+        }
+
+        if (in_array($path, ['/app/me', '/app/me/card', '/app/profile', '/app/messages', '/app/tickets'], true)) {
+            return ['label' => ['/app/me' => 'My HR', '/app/profile' => 'My Profile', '/app/messages' => 'Messages', '/app/tickets' => 'Support Tickets'][$path] ?? 'My ID Card', 'href' => $path];
         }
 
         if ($role === 'admin' && isset(self::HIDDEN[$path])) {
@@ -120,6 +142,7 @@ class OfficeMenu
                 ['label' => 'Timetable', 'icon' => 'CalendarClock', 'children' => $children([
                     ['Class Routine', '/app/timetable'],
                     ['Teacher Routine', '/app/timetable/teacher'],
+                    ['Free Rooms', '/app/timetable/free-rooms'],
                     ['Substitutions', '/app/timetable/substitutions'],
                     ['Bell Schedule', '/app/timetable/periods'],
                     ['Rooms', '/app/timetable/rooms'],
@@ -165,6 +188,7 @@ class OfficeMenu
                 ['label' => 'Certificates', 'icon' => 'Award', 'children' => $children([
                     ['Issue Certificate', '/app/certificates'],
                     ['Issued Register', '/app/certificates/history'],
+                    ['Requests', '/app/certificates/requests'],
                     ['Templates', '/app/certificates/templates'],
                 ])],
             ]],
@@ -175,6 +199,7 @@ class OfficeMenu
                     ['Collection Report', '/app/fees/payments'],
                     ['Generate Invoices', '/app/fees/generate'],
                     ['Fee Structure', '/app/fees/structure'],
+                    ['Student Fee Account', '/app/fees/student'],
                     ['Waivers & Discounts', '/app/fees/waivers'],
                 ])],
                 ['label' => 'Online Payments', 'icon' => 'CreditCard', 'children' => $children([
@@ -236,6 +261,7 @@ class OfficeMenu
                 ['label' => 'Audit Log', 'href' => '/app/system/audit', 'icon' => 'History'],
                 ['label' => 'Settings', 'icon' => 'Settings', 'children' => $children([
                     ['General', '/app/settings/general'],
+                    ['Branding & Logo', '/app/settings/branding'],
                     ['Grading', '/app/settings/grading'],
                     ['Attendance Rules', '/app/settings/attendance'],
                     ['Fees & Late Fee', '/app/settings/fees'],

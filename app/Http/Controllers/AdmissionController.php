@@ -21,16 +21,9 @@ class AdmissionController extends Controller
         $status = (string) $request->query('status', '');
         $search = trim((string) $request->query('search', ''));
 
-        $rows = DB::table('admission_applications')
-            ->when(in_array($status, self::STATUSES, true), fn ($q) => $q->where('status', $status))
-            ->when($search !== '', fn ($q) => $q->where(function ($q) use ($search) {
-                $like = '%'.$search.'%';
-                $q->where('first_name', 'like', $like)->orWhere('last_name', 'like', $like)
-                    ->orWhere('tracking_no', 'like', $like)->orWhere('mobile', 'like', $like);
-            }))
-            ->latest('id')
-            ->limit(200)
-            ->get();
+        $request->merge(['status' => $status, 'search' => $search]);
+        $dataset = \App\Support\Listing\Datasets::find('admissions');
+        ['rows' => $rows, 'pagination' => $pagination] = \App\Support\Listing\Listing::page($dataset, $request);
 
         $counts = DB::table('admission_applications')->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
@@ -38,7 +31,9 @@ class AdmissionController extends Controller
             ...$this->shared(),
             'rows' => $rows,
             'counts' => $counts,
-            'filters' => ['status' => $status, 'search' => $search],
+            'filters' => ['status' => $status, 'search' => $search, 'limit' => $pagination['limit'], 'sort' => $pagination['sort'], 'dir' => $pagination['dir']],
+            'pagination' => $pagination,
+            'exportColumns' => $dataset->columns(),
         ]);
     }
 

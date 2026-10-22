@@ -5,8 +5,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title inertia>{{ config('app.name', 'ReadySchool') }}</title>
-        <meta name="theme-color" content="#b31299">
+        <title inertia>{{ \App\Support\Branding::name() }}</title>
+        <meta name="theme-color" content="{{ \App\Support\Branding::colors()['primary'] }}">
+        <style id="brand-colors">{!! \App\Support\Branding::css() !!}</style>
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

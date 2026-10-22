@@ -1,3 +1,4 @@
+import { MadeBy } from '@/components/made-by';
 import { Avatar } from '@/components/avatar';
 import { code128Bars } from '@/lib/barcode';
 import { useI18n } from '@/lib/i18n';
@@ -6,6 +7,7 @@ import { Printer } from 'lucide-react';
 import { ReactNode, useEffect } from 'react';
 
 type Certificate = {
+    id: number;
     number: string;
     title: string;
     body: string;
@@ -173,12 +175,14 @@ export default function CertificatePrint({ certificate: c, school }: { certifica
                 <p className="text-sm text-slate-600">
                     {c.title} · {c.number}
                 </p>
-                <button
-                    onClick={() => window.print()}
-                    className="flex items-center gap-2 rounded-lg bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white"
-                >
-                    <Printer className="h-4 w-4" /> {t('Print or save as PDF')}
-                </button>
+                <span className="flex gap-2">
+                    <a href={`/app/certificates/${c.id}/pdf`} className="flex items-center gap-2 rounded-lg bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white">
+                        {t('Download PDF')}
+                    </a>
+                    <button onClick={() => window.print()} className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm">
+                        <Printer className="h-4 w-4" /> {t('Print')}
+                    </button>
+                </span>
             </div>
 
             <div className="mx-auto aspect-[297/210] w-full max-w-[1123px] overflow-hidden bg-white shadow-xl print:max-w-none print:shadow-none">
@@ -202,6 +206,7 @@ export default function CertificatePrint({ certificate: c, school }: { certifica
                     </div>
                 </Frame>
             </div>
+            <MadeBy className="mt-3" />
         </div>
     );
 }

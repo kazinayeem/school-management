@@ -22,23 +22,22 @@ class StaffController extends Controller
         $status = (string) $request->query('status', '');
         $type = in_array($request->query('type'), ['teacher', 'staff'], true) ? (string) $request->query('type') : '';
 
-        $rows = DB::table('users')->leftJoin('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')->whereIn('users.role', ['teacher', 'staff'])
-            ->when($type !== '', fn ($q) => $q->where('users.role', $type))
-            ->when($status === 'active', fn ($q) => $q->where('users.is_active', true))->when($status === 'inactive', fn ($q) => $q->where('users.is_active', false))
-            ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('users.name', 'like', "%{$search}%")->orWhere('users.username', 'like', "%{$search}%")->orWhere('staff_profiles.employee_no', 'like', "%{$search}%")->orWhere('staff_profiles.designation', 'like', "%{$search}%")))
-            ->orderBy('users.name')->limit(500)
-            ->get(['users.id', 'users.name', 'users.username', 'users.email', 'users.phone', 'users.is_active', 'users.role', 'users.photo', 'staff_profiles.employee_no', 'staff_profiles.designation', 'staff_profiles.department'])
-            ->map(function ($r) {
-                $r->photo_url = \App\Support\Photos::url($r->photo);
+        $request->merge(['search' => $search, 'status' => $status, 'type' => $type]);
+        $dataset = \App\Support\Listing\Datasets::find('staff');
+        ['rows' => $rows, 'pagination' => $pagination] = \App\Support\Listing\Listing::page($dataset, $request);
+        $rows = $rows->map(function ($r) {
+            $r->photo_url = \App\Support\Photos::url($r->photo);
 
-                return $r;
-            });
+            return $r;
+        });
 
         return Inertia::render('office/staff-list', [
             ...$this->shared(),
             'rows' => $rows,
             'counts' => ['active' => User::whereIn('role', ['teacher', 'staff'])->where('is_active', true)->count(), 'inactive' => User::whereIn('role', ['teacher', 'staff'])->where('is_active', false)->count(), 'teachers' => User::where('role', 'teacher')->count(), 'staff' => User::where('role', 'staff')->count()],
-            'filters' => ['search' => $search, 'status' => $status, 'type' => $type],
+            'filters' => ['search' => $search, 'status' => $status, 'type' => $type, 'limit' => $pagination['limit'], 'sort' => $pagination['sort'], 'dir' => $pagination['dir']],
+            'pagination' => $pagination,
+            'exportColumns' => $dataset->columns(),
             'me' => $request->user()->id,
         ]);
     }
@@ -47,7 +46,7 @@ class StaffController extends Controller
     {
         $this->admin($request);
 
-        return Inertia::render('office/staff-form', [...$this->shared(), 'staff' => null]);
+        return Inertia::render('office/staff-form', [...$this->shared(), 'staff' => null, 'files' => [], 'kinds' => \App\Support\UserFiles::KINDS]);
     }
 
     public function edit(Request $request, int $id): Response
@@ -58,7 +57,7 @@ class StaffController extends Controller
         abort_if($staff === null, 404);
         $staff->photo_url = \App\Support\Photos::url($staff->photo);
 
-        return Inertia::render('office/staff-form', [...$this->shared(), 'staff' => $staff]);
+        return Inertia::render('office/staff-form', [...$this->shared(), 'staff' => $staff, 'files' => \App\Support\UserFiles::listFor($id), 'kinds' => \App\Support\UserFiles::KINDS]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -79,6 +78,7 @@ class StaffController extends Controller
 
             return $user->id;
         });
+        \App\Support\UserFiles::saveFromRequest($request, User::findOrFail($id));
         Audit::log('created', 'Staff', $data['name']);
 
         return redirect('/app/staff')->with('status', 'Staff member added.');
@@ -146,6 +146,7 @@ class StaffController extends Controller
             'joined_on' => ['nullable', 'date'],
             'address' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
+            ...\App\Support\UserFiles::requestRules(),
         ]);
         foreach (['username', 'email', 'phone', 'password', 'designation', 'department', 'joined_on', 'address'] as $optional) {
             $data[$optional] ??= null;

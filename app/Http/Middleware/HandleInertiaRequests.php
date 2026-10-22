@@ -40,8 +40,10 @@ class HandleInertiaRequests extends Middleware
 
         return array_merge(parent::share($request), [
             ...parent::share($request),
-            'name' => config('app.name'),
+            'name' => \App\Support\Branding::name(),
             'branding' => \App\Support\Branding::data(),
+            'comms' => fn () => $request->user() ? ['messages' => \App\Http\Controllers\MessageController::unreadCount($request->user()), 'notifications' => (int) \Illuminate\Support\Facades\DB::table('app_notifications')->where('user_id', $request->user()->id)->whereNull('read_at')->count(), 'base' => \App\Support\Comms::base($request->user())] : null,
+            'site' => fn () => $request->is('app', 'app/*', 'student', 'student/*', 'parent', 'parent/*', 'm/*', 'login') ? null : \App\Support\PublicContent::site(),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user(),

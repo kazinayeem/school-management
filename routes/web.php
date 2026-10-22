@@ -11,6 +11,8 @@ Route::get('mission-and-vision', [\App\Http\Controllers\PublicController::class,
 Route::get('school-uniform', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'school-uniform');
 Route::get('privacy-policy', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'privacy-policy');
 Route::get('terms-and-conditions', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'terms-and-conditions');
+Route::get('fees', [\App\Http\Controllers\PublicController::class, 'fees']);
+Route::get('policies/{slug}', [\App\Http\Controllers\PublicController::class, 'page'])->where('slug', '[a-z0-9-]+');
 Route::get('teachers', [\App\Http\Controllers\PublicController::class, 'teachers']);
 Route::get('gallery', [\App\Http\Controllers\PublicController::class, 'gallery']);
 Route::get('notices', [\App\Http\Controllers\PublicController::class, 'notices']);
@@ -27,6 +29,10 @@ Route::get('results', [\App\Http\Controllers\PublicController::class, 'results']
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', \App\Http\Controllers\DashboardController::class)->name('dashboard');
     Route::controller(\App\Http\Controllers\FeesController::class)->prefix('app/fees')->group(function () {
+        Route::get('structure', 'structure')->name('fees.structure');
+        Route::post('structure', 'saveStructure')->name('fees.structure.save');
+        Route::get('student', 'account')->name('fees.student');
+        Route::post('student/{id}/assign', 'assign')->whereNumber('id')->name('fees.student.assign');
         Route::get('generate', 'generateForm')->name('fees.generate');
         Route::post('generate', 'generate')->name('fees.generate.run');
         Route::get('waivers', 'waivers')->name('fees.waivers');
@@ -47,6 +53,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('new', 'create')->name('staff.create');
         Route::post('/', 'store')->name('staff.store');
         Route::get('{id}', 'edit')->whereNumber('id')->name('staff.edit');
+        Route::get('{id}/hr', [\App\Http\Controllers\MyHrController::class, 'show'])->whereNumber('id')->name('staff.hr');
+        Route::get('{id}/hr/payslips/{slip}', [\App\Http\Controllers\MyHrController::class, 'payslip'])->whereNumber(['id', 'slip'])->name('staff.hr.payslip');
+        Route::get('{id}/hr/payslips/{slip}/pdf', [\App\Http\Controllers\PdfController::class, 'payslip'])->whereNumber(['id', 'slip'])->name('staff.hr.payslip.pdf');
         Route::put('{id}', 'update')->whereNumber('id')->name('staff.update');
         Route::put('{id}/status', 'status')->whereNumber('id')->name('staff.status');
     });
@@ -97,6 +106,9 @@ Route::middleware(['auth'])->group(function () {
         Route::put('{id}', 'updateExam')->whereNumber('id')->name('exams.update');
         Route::delete('{id}', 'destroyExam')->whereNumber('id')->name('exams.destroy');
         Route::post('schedule', 'saveSchedule')->name('exams.schedule');
+        Route::post('quick', 'quickCreate')->name('exams.quick');
+        Route::post('admit-settings', 'admitSettings')->name('exams.admit.settings');
+        Route::post('admit-override', 'admitOverride')->name('exams.admit.override');
         Route::get('admit-cards', 'admitCards')->name('exams.admit');
         Route::get('marks', 'marks')->name('exams.marks');
         Route::post('marks', 'saveMarks')->name('exams.marks.save');
@@ -109,6 +121,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', 'routine')->name('timetable.routine');
         Route::post('/', 'saveRoutine')->name('timetable.routine.save');
         Route::get('teacher', 'teacher')->name('timetable.teacher');
+        Route::get('free-rooms', 'freeRooms')->name('timetable.free-rooms');
         Route::get('substitutions', 'substitutions')->name('timetable.substitutions');
         Route::post('substitutions', 'storeSubstitution')->name('timetable.substitutions.store');
         Route::delete('substitutions/{id}', 'destroySubstitution')->whereNumber('id')->name('timetable.substitutions.destroy');
@@ -144,6 +157,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('app/system/roles', 'saveRoles')->name('system.roles.save');
     });
 
+    Route::get('app/settings/branding', [\App\Http\Controllers\BrandingController::class, 'show'])->name('settings.branding');
+    Route::post('app/settings/branding', [\App\Http\Controllers\BrandingController::class, 'update'])->name('settings.branding.save');
     Route::controller(\App\Http\Controllers\BackupController::class)->prefix('app/settings/backup')->group(function () {
         Route::get('/', 'index')->name('backup.index');
         Route::post('/', 'create')->name('backup.create');
@@ -246,7 +261,82 @@ Route::middleware(['auth'])->group(function () {
     });
     Route::post('app/notices', [\App\Http\Controllers\OfficeActionController::class, 'storeNotice'])->name('office.notices.store');
     Route::post('app/attendance', [\App\Http\Controllers\OfficeActionController::class, 'storeAttendance'])->name('office.attendance.store');
-    Route::post('app/homework', [\App\Http\Controllers\OfficeActionController::class, 'storeHomework'])->name('office.homework.store');
+    Route::get('requests/{id}/download', [\App\Http\Controllers\DocumentRequestController::class, 'download'])->whereNumber('id')->name('requests.download');
+    Route::get('app/certificates/requests', [\App\Http\Controllers\DocumentRequestController::class, 'office'])->name('certificates.requests');
+    Route::post('app/certificates/requests/{id}', [\App\Http\Controllers\DocumentRequestController::class, 'decide'])->whereNumber('id')->name('certificates.requests.decide');
+    Route::get('attachments/{id}', [\App\Http\Controllers\AttachmentController::class, 'show'])->whereNumber('id')->name('attachments.show');
+    Route::get('notifications/counts', [\App\Http\Controllers\NotificationController::class, 'counts'])->name('comms.counts');
+
+    // Messages, tickets and notifications are the same pages for everyone; only the address (and the shell around them) differs by role.
+    foreach (['app' => ['admin', 'teacher', 'staff'], 'student' => ['student'], 'parent' => ['parent']] as $prefix => $roles) {
+        Route::prefix($prefix)->middleware('roles:'.implode(',', $roles))->name("comms.{$prefix}.")->group(function () use ($prefix) {
+            Route::controller(\App\Http\Controllers\MessageController::class)->prefix('messages')->group(function () {
+                Route::get('/', 'index')->name('messages');
+                Route::get('compose', 'compose')->name('compose');
+                Route::get('recipients', 'recipients')->name('recipients');
+                Route::post('/', 'store')->name('messages.store');
+                Route::get('{id}', 'show')->whereNumber('id')->name('conversation');
+                Route::get('{id}/older', 'older')->whereNumber('id')->name('older');
+                Route::post('{id}/reply', 'reply')->whereNumber('id')->name('reply');
+                Route::post('{id}/state', 'state')->whereNumber('id')->name('state');
+            });
+            Route::controller(\App\Http\Controllers\TicketController::class)->prefix('tickets')->group(function () {
+                Route::get('/', 'index')->name('tickets');
+                Route::get('create', 'create')->name('tickets.create');
+                Route::post('/', 'store')->name('tickets.store');
+                Route::get('{id}', 'show')->whereNumber('id')->name('ticket');
+                Route::post('{id}/reply', 'reply')->whereNumber('id')->name('ticket.reply');
+                Route::post('{id}', 'update')->whereNumber('id')->name('ticket.update');
+            });
+            if ($prefix !== 'app') {
+                Route::controller(\App\Http\Controllers\DocumentRequestController::class)->prefix('requests')->group(function () {
+                    Route::get('/', 'index')->name('requests');
+                    Route::post('/', 'store')->name('requests.store');
+                    Route::post('{id}/cancel', 'cancel')->whereNumber('id')->name('requests.cancel');
+                });
+            }
+            Route::controller(\App\Http\Controllers\NotificationController::class)->prefix('notifications')->group(function () {
+                Route::get('/', 'index')->name('notifications');
+                Route::post('read-all', 'readAll')->name('notifications.read-all');
+                Route::get('{id}/open', 'open')->whereNumber('id')->name('notifications.open');
+            });
+        });
+    }
+
+    Route::controller(\App\Http\Controllers\PdfController::class)->group(function () {
+        Route::post('pdf/table', 'table')->name('pdf.table');
+        Route::get('card.pdf', 'myCard')->name('pdf.card');
+        Route::get('receipts/{receipt}/pdf', 'receipt')->name('pdf.receipt');
+        Route::get('students/{id}/{mode}.pdf', 'student')->whereNumber('id')->where('mode', 'transcript|file')->name('pdf.student');
+        Route::get('app/students/id-cards.pdf', 'idCards')->name('pdf.idcards');
+        Route::get('app/exams/admit-cards.pdf', 'admitCards')->name('pdf.admit');
+        Route::get('app/certificates/{id}/pdf', 'certificate')->whereNumber('id')->name('pdf.certificate');
+        Route::get('app/me/payslips/{id}/pdf', 'payslip')->whereNumber('id')->name('pdf.payslip');
+    });
+    Route::post('export/{key}', \App\Http\Controllers\ExportController::class)->where('key', '[a-z-]+')->name('export');
+    Route::post('payments/submit', [\App\Http\Controllers\PaymentSubmissionController::class, 'store'])->name('payments.submit');
+    Route::get('payment-proofs/{id}', [\App\Http\Controllers\PaymentSubmissionController::class, 'proof'])->whereNumber('id')->name('payments.proof');
+    Route::post('files/{user}', [\App\Http\Controllers\UserFileController::class, 'store'])->whereNumber('user')->name('files.store');
+    Route::delete('files/{id}', [\App\Http\Controllers\UserFileController::class, 'destroy'])->whereNumber('id')->name('files.destroy');
+    Route::get('files/{id}', [\App\Http\Controllers\UserFileController::class, 'show'])->whereNumber('id')->name('files.show');
+    Route::get('app/profile', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
+    Route::post('profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
+    Route::post('profile/password', [\App\Http\Controllers\ProfileController::class, 'password'])->name('profile.password');
+    Route::get('app/me/card', [\App\Http\Controllers\PersonalCardController::class, 'office'])->name('me.card');
+    Route::get('student/id-card', [\App\Http\Controllers\PersonalCardController::class, 'student'])->name('student.card');
+    Route::get('parent/pass', [\App\Http\Controllers\PersonalCardController::class, 'parent'])->name('parent.pass');
+    Route::controller(\App\Http\Controllers\MyHrController::class)->prefix('app/me')->group(function () {
+        Route::get('/', 'index')->name('me.hr');
+        Route::post('leave', 'storeLeave')->name('me.leave.store');
+        Route::get('payslips/{id}', 'payslip')->whereNumber('id')->name('me.payslip');
+    });
+    Route::controller(\App\Http\Controllers\HomeworkController::class)->prefix('app/homework')->group(function () {
+        Route::get('/', 'index')->name('homework.index');
+        Route::post('/', 'store')->name('office.homework.store');
+        Route::post('items/{id}', 'mark')->whereNumber('id')->name('homework.mark');
+        Route::get('{batch}', 'show')->where('batch', '[0-9a-f-]{32,36}')->name('homework.show');
+        Route::delete('{batch}', 'destroy')->where('batch', '[0-9a-f-]{32,36}')->name('homework.destroy');
+    });
     Route::post('app/students', [\App\Http\Controllers\OfficeActionController::class, 'storeStudent'])->name('office.students.store');
     Route::post('app/leave/{leave}', [\App\Http\Controllers\OfficeActionController::class, 'decideLeave'])->name('office.leave.decide');
     Route::post('app/fees/{invoice}', [\App\Http\Controllers\OfficeActionController::class, 'collectFee'])->name('office.fees.collect');
@@ -258,15 +348,16 @@ Route::middleware(['auth'])->group(function () {
     Route::post('student/password', [\App\Http\Controllers\StudentPortalController::class, 'updatePassword'])->name('student.password.update');
     Route::post('student/leave', [\App\Http\Controllers\StudentPortalController::class, 'storeLeave'])->name('student.leave.store');
     Route::post('student/homework/{homework}', [\App\Http\Controllers\StudentPortalController::class, 'submitHomework'])->name('student.homework.submit');
+    Route::get('admit-card/{exam}.pdf', [\App\Http\Controllers\PdfController::class, 'myAdmit'])->whereNumber('exam')->name('pdf.my.admit');
     Route::get('student/{page?}', [\App\Http\Controllers\StudentPortalController::class, 'show'])
-        ->where('page', 'routine|calendar|attendance|homework|results|fees|library|transport|documents|leave|profile')
+        ->where('page', 'routine|calendar|attendance|homework|results|admit-card|fees|library|transport|documents|leave|profile')
         ->name('student.portal');
 
     Route::post('parent/profile', [\App\Http\Controllers\ParentPortalController::class, 'updateProfile'])->name('parent.profile.update');
     Route::post('parent/password', [\App\Http\Controllers\ParentPortalController::class, 'updatePassword'])->name('parent.password.update');
     Route::post('parent/leave', [\App\Http\Controllers\ParentPortalController::class, 'storeLeave'])->name('parent.leave.store');
     Route::get('parent/{page?}', [\App\Http\Controllers\ParentPortalController::class, 'show'])
-        ->where('page', 'attendance|routine|calendar|documents|leave|homework|library|transport|conduct|profile')
+        ->where('page', 'attendance|routine|calendar|documents|leave|homework|library|transport|conduct|fees|admit-card|profile')
         ->name('parent.portal');
 
     Route::get('m/{slug}', function (\Illuminate\Http\Request $request, string $slug) {

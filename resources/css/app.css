@@ -21,6 +21,15 @@
     --color-indigo-900: #460527;
     --color-indigo-950: #290317;
 
+    /* The school's own colours. The server sets the --brand-* values from Branding & Logo. */
+    --color-brand: var(--brand-primary, #b31299);
+    --color-brand-dark: var(--brand-primary-dark, #8f0e7a);
+    --color-brand-light: var(--brand-primary-light, #d11ab3);
+    --color-brand-soft: var(--brand-primary-soft, #fdf2fb);
+    --color-brand-2: var(--brand-secondary, #7c3aed);
+    --color-brand-2-dark: var(--brand-secondary-dark, #4c1d95);
+    --color-brand-2-soft: var(--brand-secondary-soft, #f4e9ff);
+
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
     --radius-sm: calc(var(--radius) - 4px);
@@ -211,85 +220,206 @@ html[lang='ar'] body {
     font-family: 'Noto Sans Arabic', 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Dark theme for the hand-styled pages (admin shell, portals, public site, login). */
-.dark :is(.admin-shell, .themed) {
+/*
+ * Dark theme. Instead of patching one class at a time, the grey scale itself is flipped while
+ * the page is dark, so every text-slate-*, bg-slate-*, border-slate-* and divide-slate-* follows.
+ * Pastel tints (bg-emerald-50 ...) become deep tints and their text becomes light. Anything that
+ * is dark in both themes (the sidebars, the public footer, hero bands) opts out with .keep-scale.
+ */
+html.dark {
     color-scheme: dark;
+    --slate-50: #0b1020;
+    --slate-100: #111827;
+    --slate-200: #1f2a3d;
+    --slate-300: #33415a;
+    --slate-400: #8591a6;
+    --slate-500: #9aa6ba;
+    --slate-600: #b4bfd0;
+    --slate-700: #cbd5e1;
+    --slate-800: #e2e8f0;
+    --slate-900: #f1f5f9;
+    --slate-950: #f8fafc;
+    --color-slate-50: var(--slate-50);
+    --color-slate-100: var(--slate-100);
+    --color-slate-200: var(--slate-200);
+    --color-slate-300: var(--slate-300);
+    --color-slate-400: var(--slate-400);
+    --color-slate-500: var(--slate-500);
+    --color-slate-600: var(--slate-600);
+    --color-slate-700: var(--slate-700);
+    --color-slate-800: var(--slate-800);
+    --color-slate-900: var(--slate-900);
+    --color-slate-950: var(--slate-950);
+    --color-gray-50: var(--slate-50);
+    --color-gray-100: var(--slate-100);
+    --color-gray-200: var(--slate-200);
+    --color-gray-300: var(--slate-300);
+    --color-gray-400: var(--slate-400);
+    --color-gray-500: var(--slate-500);
+    --color-gray-600: var(--slate-600);
+    --color-gray-700: var(--slate-700);
+    --color-gray-800: var(--slate-800);
+    --color-gray-900: var(--slate-900);
+    --chart-tooltip: #111827;
+    --chart-tooltip-text: #e2e8f0;
+    --chart-tooltip-border: #33415a;
+}
+
+/* Soft colour fills and badge text for each status colour. */
+html.dark {
+    --color-emerald-50: color-mix(in oklab, #10b981 14%, #0b1020);
+    --color-emerald-100: color-mix(in oklab, #10b981 22%, #0b1020);
+    --color-emerald-200: color-mix(in oklab, #10b981 34%, #0b1020);
+    --color-emerald-700: color-mix(in oklab, #10b981 55%, white);
+    --color-emerald-800: color-mix(in oklab, #10b981 45%, white);
+    --color-emerald-900: color-mix(in oklab, #10b981 35%, white);
+    --color-green-50: color-mix(in oklab, #22c55e 14%, #0b1020);
+    --color-green-100: color-mix(in oklab, #22c55e 22%, #0b1020);
+    --color-green-200: color-mix(in oklab, #22c55e 34%, #0b1020);
+    --color-green-700: color-mix(in oklab, #22c55e 55%, white);
+    --color-green-800: color-mix(in oklab, #22c55e 45%, white);
+    --color-amber-50: color-mix(in oklab, #f59e0b 14%, #0b1020);
+    --color-amber-100: color-mix(in oklab, #f59e0b 22%, #0b1020);
+    --color-amber-200: color-mix(in oklab, #f59e0b 34%, #0b1020);
+    --color-amber-700: color-mix(in oklab, #f59e0b 60%, white);
+    --color-amber-800: color-mix(in oklab, #f59e0b 50%, white);
+    --color-amber-900: color-mix(in oklab, #f59e0b 40%, white);
+    --color-yellow-50: color-mix(in oklab, #eab308 14%, #0b1020);
+    --color-orange-50: color-mix(in oklab, #f97316 14%, #0b1020);
+    --color-orange-100: color-mix(in oklab, #f97316 22%, #0b1020);
+    --color-rose-50: color-mix(in oklab, #f43f5e 14%, #0b1020);
+    --color-rose-100: color-mix(in oklab, #f43f5e 22%, #0b1020);
+    --color-rose-200: color-mix(in oklab, #f43f5e 34%, #0b1020);
+    --color-rose-700: color-mix(in oklab, #f43f5e 55%, white);
+    --color-red-50: color-mix(in oklab, #ef4444 14%, #0b1020);
+    --color-red-100: color-mix(in oklab, #ef4444 22%, #0b1020);
+    --color-red-200: color-mix(in oklab, #ef4444 34%, #0b1020);
+    --color-red-600: color-mix(in oklab, #ef4444 70%, white);
+    --color-red-700: color-mix(in oklab, #ef4444 55%, white);
+    --color-sky-50: color-mix(in oklab, #0ea5e9 14%, #0b1020);
+    --color-sky-100: color-mix(in oklab, #0ea5e9 22%, #0b1020);
+    --color-sky-700: color-mix(in oklab, #0ea5e9 55%, white);
+    --color-sky-900: color-mix(in oklab, #0ea5e9 40%, white);
+    --color-blue-50: color-mix(in oklab, #3b82f6 14%, #0b1020);
+    --color-teal-50: color-mix(in oklab, #14b8a6 14%, #0b1020);
+    --color-violet-50: color-mix(in oklab, var(--brand-secondary, #7c3aed) 16%, #0b1020);
+    --color-violet-100: color-mix(in oklab, var(--brand-secondary, #7c3aed) 24%, #0b1020);
+    --color-violet-200: color-mix(in oklab, var(--brand-secondary, #7c3aed) 34%, #0b1020);
+    --color-purple-50: color-mix(in oklab, var(--brand-secondary, #7c3aed) 16%, #0b1020);
+    --color-fuchsia-50: color-mix(in oklab, var(--brand-primary, #b31299) 16%, #0b1020);
+    --color-fuchsia-100: color-mix(in oklab, var(--brand-primary, #b31299) 24%, #0b1020);
+    --color-fuchsia-200: color-mix(in oklab, var(--brand-primary, #b31299) 36%, #0b1020);
+    --color-pink-50: color-mix(in oklab, var(--brand-primary, #b31299) 16%, #0b1020);
+    --color-pink-100: color-mix(in oklab, var(--brand-primary, #b31299) 24%, #0b1020);
+    --color-pink-200: color-mix(in oklab, var(--brand-primary, #b31299) 36%, #0b1020);
+    --color-indigo-50: color-mix(in oklab, var(--brand-primary, #b31299) 16%, #0b1020);
+    --color-indigo-100: color-mix(in oklab, var(--brand-primary, #b31299) 24%, #0b1020);
+    --color-indigo-200: color-mix(in oklab, var(--brand-primary, #b31299) 36%, #0b1020);
+    --brand-text: color-mix(in oklab, var(--brand-primary, #b31299) 55%, white);
+    --color-brand-soft: color-mix(in oklab, var(--brand-primary, #b31299) 16%, #0b1020);
+    --color-brand-2-soft: color-mix(in oklab, var(--brand-secondary, #7c3aed) 16%, #0b1020);
+}
+
+html.dark body {
+    background-color: #0b1020;
     color: #e2e8f0;
 }
 
-.dark :is(.admin-shell, .themed).themed-root,
-.dark .admin-shell {
-    background-color: #0b1020;
-}
-
-.dark :is(.admin-shell, .themed) :is(.bg-white, .bg-white\/90, .bg-white\/80, .bg-white\/95) {
+/* White surfaces become dark cards. text-white and translucent white on coloured bands are left alone. */
+html.dark :is(.bg-white, .bg-white\/95, .bg-white\/90, .bg-white\/80, .bg-white\/70, .bg-white\/60) {
     background-color: #111827;
 }
 
-.dark :is(.admin-shell, .themed) :is(.bg-slate-50, .bg-gray-50, .bg-slate-100, .bg-gray-100) {
-    background-color: #0f172a;
+html.dark :is(.focus-within\:bg-white:focus-within, .hover\:bg-white:hover, .focus\:bg-white:focus) {
+    background-color: #111827;
 }
 
-.dark :is(.admin-shell, .themed) :is(.bg-indigo-50, .bg-fuchsia-50, .bg-violet-50, .bg-pink-50, .bg-green-50, .bg-amber-50, .bg-rose-50, .bg-blue-50, .bg-sky-50, .bg-emerald-50) {
-    background-color: #1e1b3a;
-}
-
-.dark :is(.admin-shell, .themed) :is(.border-slate-200, .border-slate-100, .border-gray-200, .border-gray-100, .border-slate-300) {
-    border-color: #273044;
-}
-
-.dark :is(.admin-shell, .themed) :is(.divide-slate-100, .divide-gray-100, .divide-y) > :not(:last-child) {
-    border-color: #273044;
-}
-
-.dark :is(.admin-shell, .themed) :is(.text-slate-900, .text-slate-800, .text-slate-700, .text-gray-900, .text-gray-800, .text-gray-700) {
-    color: #e5e7eb;
-}
-
-.dark :is(.admin-shell, .themed) :is(.text-slate-600, .text-slate-500, .text-gray-600, .text-gray-500) {
-    color: #a5b0c2;
-}
-
-.dark :is(.admin-shell, .themed) :is(.text-slate-400, .text-gray-400) {
-    color: #8591a6;
-}
-
-.dark :is(.admin-shell, .themed) :is(input, textarea, select) {
-    background-color: #0f172a;
-    color: #e5e7eb;
-    border-color: #334155;
-}
-
-.dark :is(.admin-shell, .themed) thead {
-    background-color: #0f172a;
-}
-
-.dark :is(.admin-shell, .themed) :is(.hover\:bg-slate-50, .hover\:bg-slate-100, .hover\:bg-gray-50):hover {
+html.dark :is(.hover\:bg-slate-50:hover, .hover\:bg-slate-100:hover, .hover\:bg-gray-50:hover) {
     background-color: #1a2236;
 }
 
-.dark :is(.admin-shell, .themed) :is(.shadow-sm, .shadow, .shadow-xl, .shadow-2xl, .shadow-lg) {
-    box-shadow: none;
+html.dark :is(.bg-\[\#f4f6fb\], .bg-\[\#fbfbff\], .bg-\[\#fdf8ec\]) {
+    background-color: #0b1020;
 }
 
-.dark :is(.admin-shell, .themed) :is(.text-indigo-700, .text-fuchsia-700, .text-fuchsia-800) {
-    color: #e9a8f5;
+html.dark :is(.bg-\[\#eafaf1\], .bg-\[\#eefaf4\], .bg-\[\#d9f5e6\]) {
+    background-color: color-mix(in oklab, #10b981 14%, #0b1020);
+    color: color-mix(in oklab, #10b981 55%, white);
 }
 
-.login-bg {
-    background: radial-gradient(circle at 10% 10%, var(--color-indigo-50) 0, transparent 32%), #f5f7fc;
+html.dark :is(.bg-\[\#fff9e8\], .bg-\[\#fffaf0\], .bg-\[\#ffefcc\]) {
+    background-color: color-mix(in oklab, #f59e0b 14%, #0b1020);
+    color: color-mix(in oklab, #f59e0b 60%, white);
 }
 
-.dark .login-bg {
+html.dark :is(.bg-\[\#eef8ff\], .bg-\[\#eef7ff\], .bg-\[\#dcefff\]) {
+    background-color: color-mix(in oklab, #0ea5e9 14%, #0b1020);
+    color: color-mix(in oklab, #0ea5e9 55%, white);
+}
+
+/* Links and accents that were the brand colour on white. */
+html.dark :is(.text-brand, .text-fuchsia-700, .text-fuchsia-800, .text-fuchsia-900, .text-indigo-700, .text-indigo-600, .text-pink-700, .text-brand-dark) {
+    color: var(--brand-text, #e9a8f5);
+}
+
+html.dark :is(.text-violet-700, .text-purple-700) {
+    color: color-mix(in oklab, var(--brand-secondary, #7c3aed) 55%, white);
+}
+
+html.dark :is(input, textarea, select):not([type='checkbox'], [type='radio'], [type='color'], [type='file']) {
+    background-color: #0f172a;
+    color: #e5e7eb;
+    border-color: #33415a;
+}
+
+html.dark :is(input, textarea)::placeholder {
+    color: #6b778c;
+}
+
+html.dark thead {
+    background-color: #0f172a;
+}
+
+html.dark :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+    box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.08);
+}
+
+html.dark ::selection {
+    background: color-mix(in oklab, var(--brand-primary, #b31299) 45%, #0b1020);
+}
+
+html.dark .login-bg {
     background: radial-gradient(circle at 10% 10%, #2a1650 0, transparent 40%), #0b1020;
 }
 
-.dark .themed .from-white {
+html.dark .from-white {
     --tw-gradient-from: #111827;
 }
 
-.dark .themed .to-\[\#fbfbff\] {
+html.dark .to-\[\#fbfbff\] {
     --tw-gradient-to: #0f172a;
+}
+
+html.dark :is(.from-fuchsia-50, .via-white, .to-violet-50) {
+    --tw-gradient-from: #0f172a;
+    --tw-gradient-via: #0b1020;
+    --tw-gradient-to: #111827;
+}
+
+/* Dark in both themes: keep the normal grey scale inside. */
+.keep-scale {
+    --color-slate-50: #f8fafc;
+    --color-slate-100: #f1f5f9;
+    --color-slate-200: #e2e8f0;
+    --color-slate-300: #cbd5e1;
+    --color-slate-400: #94a3b8;
+    --color-slate-500: #64748b;
+    --color-slate-600: #475569;
+    --color-slate-700: #334155;
+    --color-slate-800: #1e293b;
+    --color-slate-900: #0f172a;
+    --color-slate-950: #020617;
+    color-scheme: dark;
 }
 
 @media print {
@@ -315,3 +445,18 @@ html[lang='ar'] body {
         border-color: #000 !important;
     }
 }
+
+/* Text written in the rich editor, in the editor and when shown. */
+.rich { line-height: 1.6; overflow-wrap: anywhere; }
+.rich > * + * { margin-top: 0.6em; }
+.rich h2 { font-size: 1.2em; font-weight: 700; }
+.rich h3 { font-size: 1.05em; font-weight: 700; }
+.rich ul { list-style: disc; padding-inline-start: 1.4em; }
+.rich ol { list-style: decimal; padding-inline-start: 1.4em; }
+.rich blockquote { border-inline-start: 3px solid var(--color-slate-300); padding-inline-start: 0.9em; color: var(--color-slate-600); }
+.rich a { color: var(--brand-primary, #b31299); text-decoration: underline; }
+.rich table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+.rich th, .rich td { border: 1px solid var(--color-slate-300); padding: 0.35em 0.6em; text-align: start; vertical-align: top; }
+.rich th { background: var(--color-slate-100); font-weight: 600; }
+.rich code { background: var(--color-slate-100); border-radius: 4px; padding: 0.1em 0.3em; }
+.tiptap-body p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--color-slate-400); float: inline-start; height: 0; pointer-events: none; }

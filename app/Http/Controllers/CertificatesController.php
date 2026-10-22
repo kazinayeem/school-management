@@ -45,24 +45,7 @@ class CertificatesController extends Controller
             return back()->withErrors(['template_id' => 'That template is not active.']);
         }
 
-        $body = strtr($template->body, [
-            '{student_name}' => $student->name, '{guardian}' => $student->guardian_name ?: '—', '{class}' => trim($student->class_name.' '.$student->section),
-            '{roll}' => (string) $student->roll_no, '{admission_no}' => (string) $student->admission_no, '{date}' => date('j F Y', strtotime($data['date'])),
-            '{school_name}' => (string) (SiteSettings::get('school_name') ?: config('app.name')),
-        ]);
-
-        $id = DB::transaction(function () use ($request, $data, $student, $template, $body) {
-            $year = date('Y', strtotime($data['date']));
-            $seq = (int) DB::table('certificates')->where('number', 'like', "CERT-{$year}-%")->count() + 1;
-            do {
-                $number = "CERT-{$year}-".str_pad((string) $seq++, 4, '0', STR_PAD_LEFT);
-            } while (DB::table('certificates')->where('number', $number)->exists());
-
-            return DB::table('certificates')->insertGetId([
-                'number' => $number, 'template_id' => $template->id, 'user_id' => $student->id, 'title' => $template->name, 'body' => $body, 'style' => $template->style, 'show_photo' => $template->show_photo,
-                'issued_on' => $data['date'], 'issued_by' => $request->user()->id, 'created_at' => now(), 'updated_at' => now(),
-            ]);
-        });
+        $id = \App\Support\CertificateIssuer::issue($student, $template, $data['date'], $request->user()->id);
         Audit::log('created', 'Certificate', "{$template->name} for {$student->name}");
 
         return redirect("/app/certificates/{$id}/print");

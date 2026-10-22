@@ -21,9 +21,17 @@ class TimetableController extends Controller
         $this->access($request, '/app/timetable');
         $class = $this->classOrDefault((string) $request->query('class', ''));
         $section = in_array($request->query('section'), ['A', 'B'], true) ? (string) $request->query('section') : 'A';
-        if (\App\Support\TeacherScope::applies($request->user())) {
-            $mine = \App\Support\TeacherScope::sectionLetters($request->user(), $class);
-            $section = in_array($section, $mine, true) ? $section : ($mine[0] ?? 'A');
+
+        // Anyone who can open the routine can look up any student's section.
+        $student = null;
+        if ($request->filled('student')) {
+            $row = DB::table('users')->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')->where('users.id', (int) $request->query('student'))->where('users.role', 'student')
+                ->first(['users.id', 'users.name', 'users.photo', 'student_profiles.class_name', 'student_profiles.section', 'student_profiles.roll_no']);
+            if ($row) {
+                $class = $row->class_name;
+                $section = $row->section ?: 'A';
+                $student = ['id' => $row->id, 'name' => $row->name, 'photo' => \App\Support\Photos::url($row->photo), 'class_name' => $row->class_name, 'section' => $row->section, 'roll_no' => $row->roll_no];
+            }
         }
 
         $cells = [];
@@ -36,6 +44,7 @@ class TimetableController extends Controller
             'readOnly' => $request->user()->role !== 'admin',
             'classes' => $this->classes(),
             'filters' => ['class' => $class, 'section' => $section],
+            'student' => $student,
             'days' => self::DAYS,
             'periods' => $this->periods(),
             'cells' => (object) $cells,
@@ -130,11 +139,6 @@ class TimetableController extends Controller
         $default = $request->user()->role === 'teacher' ? $request->user()->name : ($teachers[0] ?? '');
         $teacher = (string) $request->query('teacher', $default);
         $teacher = in_array($teacher, $teachers, true) ? $teacher : $default;
-        if ($request->user()->role === 'teacher') {
-            $teacher = $request->user()->name; // a teacher sees only their own routine
-            $teachers = [$teacher];
-        }
-
         $cells = [];
         foreach (DB::table('class_periods')->where('teacher', $teacher)->get() as $row) {
             $cells["{$row->day}-{$row->sort}"] = ['subject' => $row->subject, 'teacher' => "{$row->class_name} {$row->section}", 'room' => $row->room];
@@ -215,6 +219,38 @@ class TimetableController extends Controller
         return back()->with('status', 'Entry deleted.');
     }
 
+    /** Rooms that are free (or held) in one period, so anyone can find an empty room. */
+    public function freeRooms(Request $request): Response
+    {
+        $this->access($request, '/app/timetable/free-rooms');
+        $periods = collect($this->periods())->where('is_break', false)->values();
+        $today = (int) now()->dayOfWeek; // Sunday = 0
+        $day = (int) $request->query('day', $today <= 4 ? $today : 0);
+        $day = max(0, min(4, $day));
+        $nowTime = now()->format('H:i');
+        $current = $periods->first(fn ($p) => $nowTime >= substr($p['time_range'], 0, 5) && $nowTime < substr($p['time_range'], -5));
+        $sort = (int) $request->query('period', $current['sort'] ?? ($periods->first()['sort'] ?? 1));
+        $kind = (string) $request->query('kind', '');
+
+        $held = DB::table('class_periods')->where('day', $day)->where('sort', $sort)->whereNotNull('room')->where('room', '!=', '')
+            ->get(['room', 'class_name', 'section', 'subject', 'teacher'])->keyBy('room');
+
+        $rooms = DB::table('rooms')->where('active', true)->when($kind !== '', fn ($q) => $q->where('kind', $kind))->orderBy('name')->get()
+            ->map(fn ($r) => [
+                'name' => $r->name, 'kind' => $r->kind, 'capacity' => (int) $r->capacity, 'free' => ! isset($held[$r->name]),
+                'by' => isset($held[$r->name]) ? "{$held[$r->name]->class_name} {$held[$r->name]->section} · {$held[$r->name]->subject} · {$held[$r->name]->teacher}" : null,
+            ])->values();
+
+        return Inertia::render('office/free-rooms', [
+            ...$this->shared($request),
+            'days' => self::DAYS,
+            'periods' => $periods,
+            'kinds' => DB::table('rooms')->distinct()->pluck('kind'),
+            'filters' => ['day' => $day, 'period' => $sort, 'kind' => $kind],
+            'rooms' => $rooms,
+        ]);
+    }
+
     /** @return list<array{id: int, label: string, time_range: string, is_break: bool, sort: int}> */
     private function periods(): array
     {
@@ -229,7 +265,7 @@ class TimetableController extends Controller
         $all = DB::table('academic_classes')->orderBy('sort_order')->pluck('name')->all();
         $user = request()->user();
 
-        return $user && \App\Support\TeacherScope::applies($user) ? array_values(array_intersect($all, \App\Support\TeacherScope::classes($user))) : $all;
+        return $all;
     }
 
     private function classOrDefault(string $class): string

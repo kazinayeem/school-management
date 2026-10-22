@@ -33,6 +33,7 @@ class StudentFileController extends Controller
             'roleLabel' => Permissions::label($role),
             ...$data,
             'can' => [
+                'files' => $role === 'admin',
                 'edit' => Permissions::canRole($role, 'students', 'edit'),
                 'delete' => Permissions::canRole($role, 'students', 'delete'),
             ],
@@ -102,18 +103,18 @@ class StudentFileController extends Controller
 
     private function authorizeStudent(Request $request, int $id): void
     {
-        abort_unless(\App\Support\TeacherScope::canSee($request->user(), $id), 403);
+        abort_unless(\App\Support\TeacherScope::canSee($request->user(), $id), 403, 'You can only open students from the classes and sections you teach.');
     }
 
     /** @return array<string, mixed> */
-    private function assemble(int $id): array
+    public function assemble(int $id): array
     {
         $user = DB::table('users')->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')->where('users.id', $id)->where('users.role', 'student')
             ->first(['users.id', 'users.name', 'users.username', 'users.email', 'users.phone', 'users.photo', 'users.is_active', 'student_profiles.*']);
         abort_if($user === null, 404);
 
         $student = [
-            'id' => $user->id, 'name' => $user->name, 'username' => $user->username, 'email' => $user->email, 'phone' => $user->phone, 'photo_url' => Photos::url($user->photo),
+            'id' => $id, 'name' => $user->name, 'username' => $user->username, 'email' => $user->email, 'phone' => $user->phone, 'photo_url' => Photos::url($user->photo),
             'admission_no' => $user->admission_no, 'class_name' => $user->class_name, 'section' => $user->section, 'roll_no' => $user->roll_no, 'session' => $user->session,
             'gender' => $user->gender, 'date_of_birth' => $user->date_of_birth, 'religion' => $user->religion, 'address' => $user->address, 'status' => $user->status,
             'guardian_name' => $user->guardian_name, 'guardian_mobile' => $user->guardian_mobile, 'shift' => $user->shift, 'active' => (bool) $user->is_active,
@@ -143,6 +144,8 @@ class StudentFileController extends Controller
             'certificates' => $certificates,
             'leave' => $leave,
             'documents' => $documents,
+            'files' => \App\Support\UserFiles::listFor($id),
+            'fileKinds' => \App\Support\UserFiles::KINDS,
             'notes' => $notes,
             'timeline' => $this->timeline($id, $fees, $loans, $certificates, $leave, $notes, $results),
         ];

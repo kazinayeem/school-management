@@ -202,9 +202,16 @@ export default function IdCards({
                 <label className="flex items-center gap-2 pb-2 text-sm">
                     <input type="checkbox" checked={both} onChange={(e) => setBoth(e.target.checked)} /> {t('Print the back too')}
                 </label>
-                <button onClick={() => window.print()} disabled={students.length === 0} className={`${primaryBtn} ms-auto flex items-center gap-2`}>
-                    <Printer className="h-4 w-4" /> {t('Print')}
-                </button>
+                <span className="ms-auto flex gap-2">
+                    {students.length > 0 && (
+                        <a href={`/app/students/id-cards.pdf?class=${encodeURIComponent(filters.class)}&section=${filters.section}&roll=${filters.roll}&back=${both ? 1 : 0}`} className={`${primaryBtn} flex items-center gap-2`}>
+                            {t('Download PDF')}
+                        </a>
+                    )}
+                    <button onClick={() => window.print()} disabled={students.length === 0} className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50">
+                        <Printer className="h-4 w-4" /> {t('Print')}
+                    </button>
+                </span>
             </Card>
 
             {students.length === 0 ? (

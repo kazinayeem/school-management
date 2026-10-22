@@ -1,9 +1,10 @@
+import { ExportMenu, HeaderCheckbox, Pagination, RowCheckbox, SelectionBanner, useBulkSelection, useListNav, useNavigating, type PaginationMeta } from '@/components/list-kit';
 import { FlashStatus } from '@/components/flash';
 import { OfficeShell } from '@/components/office-shell';
 import { useI18n } from '@/lib/i18n';
 import { Head, router, useForm } from '@inertiajs/react';
 import { Check, Eye, Search, X } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Application = {
     id: number;
@@ -115,18 +116,35 @@ export default function Admissions({
     rows,
     counts,
     filters,
+    pagination,
+    exportColumns,
 }: {
     navigation: Parameters<typeof OfficeShell>[0]['navigation'];
     roleLabel: string;
     rows: Application[];
     counts: Record<string, number>;
-    filters: { status: string; search: string };
+    filters: { status: string; search: string; limit: number; sort: string; dir: string };
+    pagination: PaginationMeta;
+    exportColumns: Record<string, string>;
 }) {
     const { t } = useI18n();
     const [deciding, setDeciding] = useState<Application | null>(null);
     const [search, setSearch] = useState(filters.search);
 
-    const go = (next: Partial<typeof filters>) => router.get('/app/admissions', { ...filters, ...next }, { preserveState: true, replace: true });
+    const go = useListNav(filters);
+    const busy = useNavigating();
+    const sel = useBulkSelection(rows.map((r) => r.id), pagination.total, `${filters.status}|${filters.search}`);
+    const first = useRef(true);
+    useEffect(() => {
+        if (first.current) {
+            first.current = false;
+
+            return;
+        }
+        const id = setTimeout(() => search !== filters.search && go({ search: search }), 350);
+
+        return () => clearTimeout(id);
+    }, [search]);
 
     return (
         <OfficeShell navigation={navigation} roleLabel={roleLabel}>
@@ -151,12 +169,13 @@ export default function Admissions({
                     ))}
                 </div>
 
+                <div className="flex flex-wrap items-center gap-3">
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
                         go({ search });
                     }}
-                    className="relative max-w-sm"
+                    className="relative w-full max-w-sm"
                 >
                     <Search className="absolute start-3 top-2.5 h-4 w-4 text-slate-400" />
                     <input
@@ -166,16 +185,24 @@ export default function Admissions({
                         className="w-full rounded-lg border border-slate-200 py-2 ps-9 pe-3 text-sm outline-none focus:border-fuchsia-500"
                     />
                 </form>
+                <span className="ms-auto">
+                    <ExportMenu dataset="admissions" columns={exportColumns} params={{ ...filters }} sel={sel} total={pagination.total} noun="applications" />
+                </span>
+                </div>
+                <SelectionBanner sel={sel} pageCount={rows.length} total={pagination.total} noun="applications" />
 
                 {deciding && <Decision application={deciding} onDone={() => setDeciding(null)} />}
 
-                <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className={`overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm transition-opacity ${busy ? 'opacity-60' : ''}`} aria-busy={busy}>
                     {rows.length === 0 ? (
                         <p className="px-6 py-16 text-center text-sm text-slate-400">{t('No applications found.')}</p>
                     ) : (
                         <table className="w-full min-w-[760px] text-sm">
                             <thead className="bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
                                 <tr>
+                                    <th className="w-10 px-4 py-3">
+                                        <HeaderCheckbox sel={sel} label={t('Select all on this page')} />
+                                    </th>
                                     {['Tracking no.', 'Applicant', 'Class', 'Guardian', 'Mobile', 'Status'].map((h) => (
                                         <th key={h} className="px-4 py-3 text-start font-semibold">
                                             {t(h)}
@@ -186,7 +213,10 @@ export default function Admissions({
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {rows.map((r) => (
-                                    <tr key={r.id} className="hover:bg-slate-50">
+                                    <tr key={r.id} className={`hover:bg-slate-50 ${sel.isSelected(r.id) ? 'bg-fuchsia-50/50' : ''}`}>
+                                        <td className="px-4 py-3">
+                                            <RowCheckbox sel={sel} id={r.id} label={`${t('Select')} ${r.first_name} ${r.last_name}`} />
+                                        </td>
                                         <td className="px-4 py-3 font-mono text-xs">{r.tracking_no}</td>
                                         <td className="px-4 py-3">
                                             {r.first_name} {r.last_name}
@@ -222,6 +252,7 @@ export default function Admissions({
                         </table>
                     )}
                 </div>
+                <Pagination meta={pagination} label="applications" onPage={(page) => go({ page })} onLimit={(limit) => go({ limit, page: 1 })} />
             </div>
         </OfficeShell>
     );

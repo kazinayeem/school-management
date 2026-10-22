@@ -149,7 +149,7 @@ class Permissions
         if (! self::isEmployee($role)) {
             return false;
         }
-        if ($path === '/app') {
+        if ($path === '/app' || $path === '/app/me' || $path === '/app/profile' || str_starts_with($path, '/app/me/') || preg_match('#^/app/(messages|tickets|notifications)(/|$)#', $path)) {
             return true;
         }
         // Read-only lookups used by the student pickers on many pages.

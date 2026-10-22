@@ -33,6 +33,12 @@ class User extends Authenticatable
         'phone',
         'is_active',
         'photo',
+        'address',
+        'alt_phone',
+        'emergency_name',
+        'emergency_phone',
+        'blood_group',
+        'date_of_birth',
     ];
 
     public function profile(): HasOne

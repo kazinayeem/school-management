@@ -42,9 +42,9 @@ class OfficeData
             ],
             'snapshot' => array_values(array_filter([
                 ['label' => 'Collected today', 'value' => 'Tk '.number_format((int) DB::table('fee_payments')->whereDate('paid_on', today())->sum('amount')), 'note' => 'Payments received today', 'href' => '/app/fees/payments'],
-                $admin ? ['label' => 'Admission queue', 'value' => '3', 'note' => 'Applications awaiting review', 'href' => '/app/students/new'] : null,
-                $admin ? ['label' => 'Website enquiries', 'value' => '0', 'note' => 'Unread messages', 'href' => '/app/website/messages'] : null,
-                ['label' => 'Overdue books', 'value' => '5', 'note' => 'Loans past their due date', 'href' => '/app/library/fines'],
+                $admin ? ['label' => 'Admission queue', 'value' => (string) DB::table('admission_applications')->whereIn('status', ['received', 'under_review'])->count(), 'note' => 'Applications awaiting review', 'href' => '/app/students/new'] : null,
+                $admin ? ['label' => 'Website enquiries', 'value' => (string) DB::table('contact_messages')->where('status', 'new')->count(), 'note' => 'Unread messages', 'href' => '/app/website/messages'] : null,
+                ['label' => 'Overdue books', 'value' => (string) DB::table('library_loans')->where('status', 'overdue')->count(), 'note' => 'Loans past their due date', 'href' => '/app/library/fines'],
             ])),
             'actions' => $actions,
             'fees' => [
@@ -56,13 +56,8 @@ class OfficeData
             'classes' => $pulse['classes'],
             'pendingCount' => $pulse['pendingCount'],
             'pending' => array_slice($pulse['pending'], 0, 5),
-            'activity' => [
-                ['actor' => 'Super Admin', 'action' => 'updated Setting', 'when' => '71 days ago'],
-                ['actor' => 'Super Admin', 'action' => 'updated Setting', 'when' => '71 days ago'],
-                ['actor' => 'Super Admin', 'action' => 'updated Setting', 'when' => '71 days ago'],
-                ['actor' => 'Super Admin', 'action' => 'published Notice', 'when' => '86 days ago'],
-                ['actor' => 'Super Admin', 'action' => 'enrolled Student', 'when' => '90 days ago'],
-            ],
+            'activity' => $admin ? DB::table('audit_logs')->leftJoin('users', 'users.id', '=', 'audit_logs.user_id')->orderByDesc('audit_logs.id')->limit(5)->get(['users.name as actor', 'audit_logs.action', 'audit_logs.subject', 'audit_logs.created_at'])
+                ->map(fn ($r) => ['actor' => $r->actor ?: 'System', 'action' => trim($r->action.' '.$r->subject), 'when' => \Illuminate\Support\Carbon::parse($r->created_at)->diffForHumans()])->all() : [],
             'notices' => DB::table('school_notices')
                 ->where(function ($query) {
                     $query->whereNull('expires_on')->orWhere('expires_on', '>=', now()->toDateString());
@@ -195,73 +190,42 @@ class OfficeData
 
     private static function studentDirectory(Request $request): array
     {
+        $dataset = \App\Support\Listing\Datasets::find('students');
         $class = (string) $request->query('class', '');
         $section = (string) $request->query('section', '');
         $status = (string) $request->query('status', 'active');
         $session = (string) $request->query('session', '2026');
         $search = trim((string) $request->query('q', ''));
-        $page = max(1, (int) $request->query('page', 1));
 
-        $query = User::query()
-            ->where('users.role', 'student')
-            ->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')
-            ->select('users.*');
-
-        if ($status !== 'all') {
-            $query->where('student_profiles.status', $status === '' ? 'active' : $status);
-        }
-        if ($session !== '' && $session !== 'all') {
-            $query->where('student_profiles.session', $session);
-        }
-        if ($class !== '') {
-            $query->where('student_profiles.class_name', $class);
-        }
-        if ($section !== '') {
-            $query->where('student_profiles.section', $section);
-        }
-        if ($search !== '') {
-            $query->where(function ($inner) use ($search) {
-                $inner->where('users.name', 'like', "%{$search}%")
-                    ->orWhere('student_profiles.admission_no', 'like', "%{$search}%")
-                    ->orWhere('student_profiles.guardian_mobile', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->user() !== null) {
-            TeacherScope::restrict($query, $request->user());
-        }
-
-        $total = (clone $query)->count();
-        $rows = $query->with('profile')->orderBy('student_profiles.admission_no')->forPage($page, 50)->get();
+        ['rows' => $rows, 'pagination' => $pagination] = \App\Support\Listing\Listing::page($dataset, $request);
 
         return [
             'kind' => 'students',
             'title' => 'Students',
             'subtitle' => 'Search, filter and manage the student body.',
             'canAdmit' => $request->user()?->role === 'admin',
-            'filters' => ['q' => $search, 'session' => $session, 'class' => $class, 'section' => $section, 'status' => $status, 'page' => $page],
+            'filters' => ['q' => $search, 'session' => $session, 'class' => $class, 'section' => $section, 'status' => $status, 'page' => $pagination['page'], 'limit' => $pagination['limit'], 'sort' => $pagination['sort'], 'dir' => $pagination['dir']],
+            'kinds' => \App\Support\UserFiles::KINDS,
             'classes' => collect(range(1, 10))->map(fn ($n) => "Class {$n}")->all(),
-            'total' => $total,
-            'from' => $total === 0 ? 0 : (($page - 1) * 50) + 1,
-            'to' => min($page * 50, $total),
-            'lastPage' => max(1, (int) ceil($total / 50)),
-            'rows' => $rows->map(function (User $user) {
-                $profile = $user->profile;
-
-                return [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'photo' => $user->photo_url,
-                    'admissionNo' => $profile->admission_no ?? '—',
-                    'class' => trim(str_replace('Class ', '', (string) $profile->class_name).'-'.$profile->section, '-'),
-                    'roll' => $profile->roll_no ?? '—',
-                    'gender' => $profile->gender ?? '—',
-                    'dob' => $profile->date_of_birth?->format('d-m-Y') ?? '—',
-                    'shift' => $profile->shift ?? '—',
-                    'mobile' => $profile->guardian_mobile ?? '—',
-                    'status' => ucfirst((string) ($profile->status ?? 'active')),
-                ];
-            })->all(),
+            'pagination' => $pagination,
+            'exportColumns' => $dataset->columns(),
+            'total' => $pagination['total'],
+            'from' => $pagination['from'],
+            'to' => $pagination['to'],
+            'lastPage' => $pagination['totalPages'],
+            'rows' => $rows->map(fn ($r) => [
+                'id' => $r->id,
+                'name' => $r->name,
+                'photo' => \App\Support\Photos::url($r->photo),
+                'admissionNo' => $r->admission_no ?? '—',
+                'class' => trim(str_replace('Class ', '', (string) $r->class_name).'-'.$r->section, '-'),
+                'roll' => $r->roll_no ?? '—',
+                'gender' => $r->gender ?? '—',
+                'dob' => $r->date_of_birth ? \Illuminate\Support\Carbon::parse($r->date_of_birth)->format('d-m-Y') : '—',
+                'shift' => $r->shift ?? '—',
+                'mobile' => $r->guardian_mobile ?? '—',
+                'status' => ucfirst((string) ($r->status ?? 'active')),
+            ])->all(),
         ];
     }
 

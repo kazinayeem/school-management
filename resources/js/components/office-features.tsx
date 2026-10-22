@@ -1,7 +1,9 @@
+import { ExportMenu, HeaderCheckbox, Pagination, RowCheckbox, SelectionBanner, SortHeader, useBulkSelection, useListNav, useNavigating, type PaginationMeta } from '@/components/list-kit';
+import { DocumentInputs } from '@/components/user-files';
 import { Avatar } from '@/components/avatar';
 import { Link, router, useForm } from '@inertiajs/react';
 import { Download, Eye, Pencil, ReceiptText, Search, Upload, UserRound } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type StudentRow = {
     id: number;
@@ -17,112 +19,87 @@ type StudentRow = {
     status: string;
 };
 
+const studentColumns = [
+    { key: 'name', label: 'Student' }, { key: 'admissionNo', label: 'Admission no' }, { key: 'class', label: 'Class' }, { key: 'roll', label: 'Roll' },
+    { key: 'gender', label: 'Gender' }, { key: 'dob', label: 'Date of birth' }, { key: 'shift', label: 'Shift' }, { key: 'mobile', label: 'Guardian mobile' }, { key: 'status', label: 'Status' },
+];
+
 export function StudentsView({ module }: { module: Record<string, any> }) {
-    const filters = module.filters as { q: string; session: string; class: string; section: string; status: string; page: number };
-    const [q, setQ] = useState(filters.q);
+    const filters = module.filters as { q: string; session: string; class: string; section: string; status: string; page: number; limit: number; sort: string; dir: string };
+    const pagination = module.pagination as PaginationMeta;
     const rows = module.rows as StudentRow[];
+    const [q, setQ] = useState(filters.q);
+    const busy = useNavigating();
+    const nav = useListNav(filters);
+    const sel = useBulkSelection(rows.map((r) => r.id), pagination.total, `${filters.q}|${filters.session}|${filters.class}|${filters.section}|${filters.status}`);
+    const first = useRef(true);
 
-    const visit = (next: Record<string, string | number>) => {
-        router.get('/app/students', { ...filters, page: 1, ...next }, { preserveState: true, replace: true });
-    };
+    // Search as you type, after a short pause, so the server is not hit on every key.
+    useEffect(() => {
+        if (first.current) {
+            first.current = false;
 
-    const search = (event: FormEvent) => {
-        event.preventDefault();
-        visit({ q });
-    };
+            return;
+        }
+        const id = setTimeout(() => q !== filters.q && nav({ q }), 350);
+
+        return () => clearTimeout(id);
+    }, [q]);
+
+    const sortHead = (field: string, label: string) => <SortHeader field={field} label={label} meta={pagination} onSort={(f, d) => nav({ sort: f, dir: d, page: 1 })} className="px-4 py-3 text-start" />;
+    const plain = (label: string) => (
+        <th scope="col" className="px-4 py-3 text-start font-semibold">
+            {label}
+        </th>
+    );
 
     return (
-        <div className="mx-auto max-w-[1600px] space-y-6">
+        <div className="mx-auto max-w-[1600px] space-y-5">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-semibold text-slate-900">{module.title}</h1>
                     <p className="mt-0.5 text-sm text-slate-600">{module.subtitle}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
-                    >
-                        Print
-                    </button>
-                    <button
-                        type="button"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
-                    >
-                        <Download className="h-4 w-4" /> Export
-                    </button>
-                    <button
-                        type="button"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
-                    >
+                    <ExportMenu dataset="students" columns={module.exportColumns} params={{ ...filters }} sel={sel} total={pagination.total} noun="students" />
+                    <Link href="/app/students/import" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                         <Upload className="h-4 w-4" /> Import
-                    </button>
+                    </Link>
                     {module.canAdmit && (
-                        <Link
-                            href="/app/students/new"
-                            className="rounded-lg bg-[#b31299] px-3 py-2 text-sm font-semibold text-white hover:bg-[#9a0e84]"
-                        >
+                        <Link href="/app/students/new" className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
                             + New admission
                         </Link>
                     )}
                 </div>
             </div>
-            <form onSubmit={search} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5">
-                <input
-                    aria-label="Name, admission no, or guardian mobile"
-                    value={q}
-                    onChange={(event) => setQ(event.target.value)}
-                    placeholder="Name, admission no, or guardian mobile"
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-                <select
-                    aria-label="Session"
-                    value={filters.session}
-                    onChange={(event) => visit({ session: event.target.value })}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
+            <form onSubmit={(e) => { e.preventDefault(); nav({ q }); }} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5">
+                <input aria-label="Name, admission no, or guardian mobile" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, admission no, or guardian mobile" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <select aria-label="Session" value={filters.session} onChange={(e) => nav({ session: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
                     <option value="2026">2026 (current)</option>
                     <option value="all">All sessions</option>
                 </select>
-                <select
-                    aria-label="All classes"
-                    value={filters.class}
-                    onChange={(event) => visit({ class: event.target.value, section: '' })}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
+                <select aria-label="Class" value={filters.class} onChange={(e) => nav({ class: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
                     <option value="">All classes</option>
                     {(module.classes as string[]).map((name) => (
                         <option key={name}>{name}</option>
                     ))}
                 </select>
-                <select
-                    aria-label="All sections"
-                    value={filters.section}
-                    disabled={filters.class === ''}
-                    onChange={(event) => visit({ section: event.target.value })}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
-                >
+                <select aria-label="Section" value={filters.section} onChange={(e) => nav({ section: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
                     <option value="">All sections</option>
                     <option>A</option>
                     <option>B</option>
                 </select>
-                <select
-                    aria-label="Status"
-                    value={filters.status}
-                    onChange={(event) => visit({ status: event.target.value })}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
+                <select aria-label="Status" value={filters.status} onChange={(e) => nav({ status: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
                     <option value="active">Active</option>
                     <option value="transferred">Transferred</option>
                     <option value="dropped">Dropped</option>
                     <option value="all">All statuses</option>
                 </select>
             </form>
-            <p className="text-sm text-slate-500">
-                {module.total} students · showing {module.from}–{module.to}
-            </p>
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+            <SelectionBanner sel={sel} pageCount={rows.length} total={pagination.total} noun="students" />
+
+            <div className={`overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm transition-opacity ${busy ? 'opacity-60' : ''}`} aria-busy={busy}>
                 {rows.length === 0 ? (
                     <div className="px-6 py-16 text-center">
                         <h3 className="font-semibold text-slate-800">No students found</h3>
@@ -132,29 +109,29 @@ export function StudentsView({ module }: { module: Record<string, any> }) {
                     <table className="w-full min-w-[960px] text-sm">
                         <thead className="bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
                             <tr>
-                                {[
-                                    'Student',
-                                    'Admission no',
-                                    'Class',
-                                    'Roll',
-                                    'Gender',
-                                    'Date of birth',
-                                    'Shift',
-                                    'Guardian mobile',
-                                    'Status',
-                                    'Actions',
-                                ].map((header) => (
-                                    <th key={header} className="px-4 py-3 text-left font-semibold">
-                                        {header}
-                                    </th>
-                                ))}
+                                <th scope="col" className="w-10 px-4 py-3">
+                                    <HeaderCheckbox sel={sel} label="Select all students on this page" />
+                                </th>
+                                {sortHead('name', 'Student')}
+                                {sortHead('admission_no', 'Admission no')}
+                                {sortHead('class', 'Class')}
+                                {sortHead('roll', 'Roll')}
+                                {plain('Gender')}
+                                {plain('Date of birth')}
+                                {plain('Shift')}
+                                {plain('Guardian mobile')}
+                                {sortHead('status', 'Status')}
+                                {plain('Actions')}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {rows.map((row) => (
-                                <tr key={row.id} className="hover:bg-slate-50">
+                                <tr key={row.id} className={`hover:bg-slate-50 ${sel.isSelected(row.id) ? 'bg-fuchsia-50/50' : ''}`}>
+                                    <td className="px-4 py-3">
+                                        <RowCheckbox sel={sel} id={row.id} label={`Select ${row.name}`} />
+                                    </td>
                                     <td className="px-4 py-3 font-medium text-slate-900">
-                                        <Link href={`/app/students/${row.id}`} className="flex items-center gap-3 hover:text-[#b31299]">
+                                        <Link href={`/app/students/${row.id}`} className="flex items-center gap-3 hover:text-brand">
                                             <Avatar name={row.name} src={row.photo} className="h-9 w-9 text-sm" />
                                             {row.name}
                                         </Link>
@@ -167,28 +144,13 @@ export function StudentsView({ module }: { module: Record<string, any> }) {
                                     <td className="px-4 py-3">{row.shift}</td>
                                     <td className="px-4 py-3">{row.mobile}</td>
                                     <td className="px-4 py-3">
-                                        <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                                            {row.status}
-                                        </span>
+                                        <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700">{row.status}</span>
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center justify-end gap-1">
-                                            <Link
-                                                href={`/app/students/${row.id}`}
-                                                title="View profile"
-                                                aria-label={`View ${row.name}`}
-                                                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#b31299]"
-                                            >
+                                            <Link href={`/app/students/${row.id}`} title="View profile" aria-label={`View ${row.name}`} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-brand">
                                                 <Eye className="h-4 w-4" />
                                             </Link>
-                                            <button
-                                                type="button"
-                                                title="Edit student"
-                                                aria-label={`Edit ${row.name}`}
-                                                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#b31299]"
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -197,20 +159,7 @@ export function StudentsView({ module }: { module: Record<string, any> }) {
                     </table>
                 )}
             </div>
-            <div className="flex justify-end gap-2">
-                <Link
-                    href={`/app/students?${query({ ...filters, page: Math.max(1, filters.page - 1) })}`}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
-                >
-                    Prev
-                </Link>
-                <Link
-                    href={`/app/students?${query({ ...filters, page: Math.min(module.lastPage, filters.page + 1) })}`}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
-                >
-                    Next
-                </Link>
-            </div>
+            <Pagination meta={pagination} label="students" onPage={(page) => nav({ page })} onLimit={(limit) => nav({ limit, page: 1 })} />
         </div>
     );
 }
@@ -262,6 +211,9 @@ export function AdmissionView({ module }: { module: Record<string, any> }) {
         date_of_birth: '',
         guardian_name: '',
         guardian_mobile: '',
+        doc_birth_certificate: null as File | null,
+        doc_nid: null as File | null,
+        doc_previous_certificate: null as File | null,
     });
 
     return (
@@ -273,7 +225,7 @@ export function AdmissionView({ module }: { module: Record<string, any> }) {
             <form
                 onSubmit={(event) => {
                     event.preventDefault();
-                    form.post(route('office.students.store'));
+                    form.post(route('office.students.store'), { forceFormData: true });
                 }}
                 className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
             >
@@ -326,6 +278,7 @@ export function AdmissionView({ module }: { module: Record<string, any> }) {
                 </label>
                 <Field label="Guardian name" value={form.data.guardian_name} onChange={(value) => form.setData('guardian_name', value)} />
                 <Field label="Guardian mobile" value={form.data.guardian_mobile} onChange={(value) => form.setData('guardian_mobile', value)} />
+                {module.kinds && <DocumentInputs kinds={module.kinds as Record<string, string>} data={form.data} setData={form.setData as never} errors={form.errors as Record<string, string>} />}
                 <button
                     disabled={form.processing}
                     className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -790,7 +743,7 @@ export function FeesView({ module }: { module: Record<string, any> }) {
             <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-[#b31299]">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-brand">
                             <UserRound className="h-4 w-4" />
                         </span>
                         <div>
@@ -847,7 +800,7 @@ export function FeesView({ module }: { module: Record<string, any> }) {
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
                                 placeholder="Search student..."
-                                className="h-10 w-full rounded-lg border border-slate-200 pr-3 pl-9 text-sm outline-none focus:border-[#b31299]"
+                                className="h-10 w-full rounded-lg border border-slate-200 pr-3 pl-9 text-sm outline-none focus:border-brand"
                             />
                         </span>
                     </label>
@@ -916,7 +869,7 @@ export function FeesView({ module }: { module: Record<string, any> }) {
                                                             amount: row.payable - row.paid + (row.lateFee ?? 0),
                                                         })
                                                     }
-                                                    className="rounded-lg bg-[#b31299] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#9a0e84]"
+                                                    className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-dark"
                                                 >
                                                     Collect Tk {(row.payable - row.paid + (row.lateFee ?? 0)).toLocaleString()}
                                                 </button>

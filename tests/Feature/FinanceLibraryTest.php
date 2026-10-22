@@ -37,13 +37,13 @@ class FinanceLibraryTest extends TestCase
         DB::table('fee_waivers')->insert(['user_id' => $a->id, 'kind' => 'percent', 'value' => 50, 'active' => true, 'created_at' => now(), 'updated_at' => now()]);
 
         $payload = ['fee_head_id' => $head, 'class_name' => 'Class 6', 'label' => 'October 2026 Tuition', 'due_on' => '2026-10-31'];
-        $this->post('/app/fees/generate', $payload)->assertSessionHas('generated', ['created' => 2, 'skipped' => 0, 'waived' => 1]);
+        $this->post('/app/fees/generate', $payload)->assertSessionHas('generated', ['created' => 2, 'skipped' => 0, 'waived' => 1, 'nothing' => 0]);
 
         $this->assertSame(750, (int) DB::table('fee_invoices')->where('user_id', $a->id)->value('payable'));
         $this->assertSame(1500, (int) DB::table('fee_invoices')->where('user_id', $b->id)->value('payable'));
         $this->assertSame(750, (int) $a->profile()->first()->dues_total);
 
-        $this->post('/app/fees/generate', $payload)->assertSessionHas('generated', ['created' => 0, 'skipped' => 2, 'waived' => 0]);
+        $this->post('/app/fees/generate', $payload)->assertSessionHas('generated', ['created' => 0, 'skipped' => 2, 'waived' => 0, 'nothing' => 0]);
         $this->assertSame(2, DB::table('fee_invoices')->count());
     }
 
@@ -86,9 +86,16 @@ class FinanceLibraryTest extends TestCase
     {
         $this->admin();
 
-        $this->post('/app/fees/structure', ['name' => 'Lab Fee', 'class_name' => 'Class 9', 'amount' => 300, 'active' => true])->assertSessionHasNoErrors();
-        $this->assertSame('Class 9', DB::table('fee_heads')->where('name', 'Lab Fee')->value('class_name'));
-        $this->get('/app/fees/structure')->assertInertia(fn (Assert $p) => $p->where('definition.fields.1.type', 'select'));
+        $row = ['name' => 'Lab Fee', 'category' => 'lab', 'frequency' => 'monthly', 'optional' => true, 'amounts' => ['Class 9' => 300, 'Class 10' => 350, 'Class 8' => '']];
+        $this->post('/app/fees/structure', ['rows' => [$row]])->assertSessionHasNoErrors();
+        $this->assertEquals(['Class 10' => 350, 'Class 9' => 300], DB::table('fee_heads')->where('name', 'Lab Fee')->pluck('amount', 'class_name')->all());
+        $this->assertSame(1, (int) DB::table('fee_heads')->where('name', 'Lab Fee')->where('class_name', 'Class 9')->value('optional'));
+        $this->get('/app/fees/structure')->assertInertia(fn (Assert $p) => $p->component('office/fee-structure')->where('rows.0.name', 'Lab Fee')->where('rows.0.amounts.Class 9', 300));
+
+        // Rows left out of the grid are removed; bad categories are refused.
+        $this->post('/app/fees/structure', ['rows' => [['name' => 'Monthly Tuition', 'category' => 'bogus', 'frequency' => 'monthly', 'amounts' => ['Class 1' => 1000]]]])->assertSessionHasErrors('rows.0.category');
+        $this->post('/app/fees/structure', ['rows' => [['name' => 'Monthly Tuition', 'category' => 'tuition', 'frequency' => 'monthly', 'amounts' => ['Class 1' => 1000, 'Class 2' => 1100]]]])->assertSessionHasNoErrors();
+        $this->assertSame(['Class 1', 'Class 2'], DB::table('fee_heads')->orderBy('class_name')->pluck('class_name')->all());
 
         $this->post('/app/fees/gateway', ['gateway_enabled' => true, 'gateway_provider' => 'bKash', 'gateway_mode' => 'live', 'gateway_merchant_id' => 'M1'])->assertSessionHasNoErrors();
         $this->post('/app/fees/gateway', ['gateway_provider' => 'Paypal', 'gateway_mode' => 'live'])->assertSessionHasErrors('gateway_provider');

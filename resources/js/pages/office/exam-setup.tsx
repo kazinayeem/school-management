@@ -66,6 +66,68 @@ function ExamForm({ exam, onDone }: { exam: Exam | null; onDone: () => void }) {
     );
 }
 
+
+function QuickCreate({ classes, onDone }: { classes: string[]; onDone: () => void }) {
+    const { t } = useI18n();
+    const form = useForm<{ name: string; starts_on: string; ends_on: string; starts_at: string; classes: string[] }>({ name: '', starts_on: '', ends_on: '', starts_at: '10:00', classes: classes });
+    const toggle = (c: string) => form.setData('classes', form.data.classes.includes(c) ? form.data.classes.filter((x) => x !== c) : [...form.data.classes, c]);
+
+    return (
+        <form onSubmit={(e) => { e.preventDefault(); form.post('/app/exams/quick', { preserveScroll: true, onSuccess: onDone }); }}>
+            <Card className="space-y-4 border-fuchsia-200">
+                <div>
+                    <h2 className="font-semibold">{t('Create exam with timetable')}</h2>
+                    <p className="text-sm text-slate-500">{t('Choose the dates and classes. Every subject is placed on its own working day (Friday and Saturday are skipped) and you can change any date afterwards.')}</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-4">
+                    <Field label="Exam name" error={form.errors.name}><input className={inputCls} value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} placeholder="Half Yearly Examination 2026" /></Field>
+                    <Field label="Starts on" error={form.errors.starts_on}><input type="date" className={inputCls} value={form.data.starts_on} onChange={(e) => form.setData('starts_on', e.target.value)} /></Field>
+                    <Field label="Ends on" error={form.errors.ends_on}><input type="date" className={inputCls} value={form.data.ends_on} onChange={(e) => form.setData('ends_on', e.target.value)} /></Field>
+                    <Field label="Start time" error={form.errors.starts_at}><input type="time" className={inputCls} value={form.data.starts_at} onChange={(e) => form.setData('starts_at', e.target.value)} /></Field>
+                </div>
+                <div>
+                    <div className="mb-2 flex items-center gap-3 text-sm font-medium">{t('Classes')}
+                        <button type="button" className="text-xs text-fuchsia-700" onClick={() => form.setData('classes', classes)}>{t('Select all')}</button>
+                        <button type="button" className="text-xs text-slate-500" onClick={() => form.setData('classes', [])}>{t('Clear')}</button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {classes.map((c) => (
+                            <label key={c} className={`cursor-pointer rounded-full border px-3 py-1 text-sm ${form.data.classes.includes(c) ? 'border-fuchsia-600 bg-fuchsia-50 text-fuchsia-800' : 'border-slate-200'}`}>
+                                <input type="checkbox" className="sr-only" checked={form.data.classes.includes(c)} onChange={() => toggle(c)} />{t(c)}
+                            </label>
+                        ))}
+                    </div>
+                    {(form.errors.classes as string | undefined) && <p className="mt-1 text-xs text-red-600">{form.errors.classes}</p>}
+                </div>
+                <div className="flex gap-3">
+                    <button disabled={form.processing} className={primaryBtn}>{t('Create exam')}</button>
+                    <button type="button" onClick={onDone} className={ghostBtn}>{t('Cancel')}</button>
+                </div>
+            </Card>
+        </form>
+    );
+}
+
+function AdmitRule({ limit, currency }: { limit: number | null; currency: string }) {
+    const { t } = useI18n();
+    const form = useForm({ admit_due_limit: limit === null ? '' : String(limit) });
+
+    return (
+        <Card>
+            <form onSubmit={(e) => { e.preventDefault(); form.post('/app/exams/admit-settings', { preserveScroll: true }); }} className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[240px] flex-1">
+                    <h2 className="font-semibold">{t('Admit card and unpaid fees')}</h2>
+                    <p className="text-sm text-slate-500">{t('Students and parents download admit cards from their portal. Hold a card back when unpaid fees are above this amount. Leave empty to never hold cards. You can release one student from the Admit Cards page.')}</p>
+                </div>
+                <Field label={`${t('Hold when dues exceed')} (${currency})`} error={form.errors.admit_due_limit}>
+                    <input type="number" min={0} className={inputCls} value={form.data.admit_due_limit} onChange={(e) => form.setData('admit_due_limit', e.target.value)} placeholder={t('Never hold')} />
+                </Field>
+                <button disabled={form.processing} className={primaryBtn}>{t('Save')}</button>
+            </form>
+        </Card>
+    );
+}
+
 function Schedule({
     examId,
     className,
@@ -209,6 +271,8 @@ export default function ExamSetup({
     schedule,
     published,
     rooms = [],
+    admitLimit = null,
+    currency = 'Tk',
 }: {
     navigation: Nav;
     roleLabel: string;
@@ -218,9 +282,11 @@ export default function ExamSetup({
     schedule: Row[];
     published: boolean;
     rooms?: string[];
+    admitLimit?: number | null;
+    currency?: string;
 }) {
     const { t } = useI18n();
-    const [editing, setEditing] = useState<Exam | 'new' | null>(null);
+    const [editing, setEditing] = useState<Exam | 'new' | 'quick' | null>(exams.length === 0 ? 'quick' : null);
     const go = (next: Record<string, string | number>) => router.get('/app/exams', { ...selected, ...next }, { preserveState: false, replace: true });
 
     return (
@@ -231,12 +297,16 @@ export default function ExamSetup({
             subtitle="Create exams, then set each class's subjects, dates and marks."
             wide
         >
-            <div className="flex justify-end">
-                <button onClick={() => setEditing('new')} className={primaryBtn}>
+            <div className="flex flex-wrap justify-end gap-2">
+                <button onClick={() => setEditing('new')} className={ghostBtn}>
                     {t('New exam')}
                 </button>
+                <button onClick={() => setEditing('quick')} className={primaryBtn}>
+                    {t('Create exam with timetable')}
+                </button>
             </div>
-            {editing && (
+            {editing === 'quick' && <QuickCreate classes={classes} onDone={() => setEditing(null)} />}
+            {editing && editing !== 'quick' && (
                 <ExamForm key={editing === 'new' ? 'new' : editing.id} exam={editing === 'new' ? null : editing} onDone={() => setEditing(null)} />
             )}
 
@@ -275,6 +345,8 @@ export default function ExamSetup({
                     </tr>
                 ))}
             </Table>
+
+            <AdmitRule limit={admitLimit} currency={currency} />
 
             {selected.exam > 0 && (
                 <section className="space-y-4">

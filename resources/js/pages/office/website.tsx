@@ -1,4 +1,6 @@
+import { TableExportMenu } from '@/components/pdf-button';
 import { FlashStatus } from '@/components/flash';
+import { RichEditor } from '@/components/comms/rich-editor';
 import { OfficeShell } from '@/components/office-shell';
 import { useI18n } from '@/lib/i18n';
 import { Head, router, useForm } from '@inertiajs/react';
@@ -8,7 +10,7 @@ import { FormEvent, useState } from 'react';
 type Field = {
     name: string;
     label: string;
-    type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'datetime' | 'checkbox' | 'select';
+    type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'datetime' | 'checkbox' | 'select' | 'richtext';
     hint?: string;
     step?: string;
     default?: unknown;
@@ -47,7 +49,7 @@ function Fields({ fields, form }: { fields: Field[]; form: ReturnType<typeof use
     return (
         <div className="grid gap-4 md:grid-cols-2">
             {fields.map((f) => (
-                <div key={f.name} className={f.type === 'textarea' ? 'md:col-span-2' : ''}>
+                <div key={f.name} className={f.type === 'textarea' || f.type === 'richtext' ? 'md:col-span-2' : ''}>
                     {f.type === 'checkbox' ? (
                         <label className="flex items-center gap-2 pt-6 text-sm font-medium text-slate-700">
                             <input type="checkbox" checked={Boolean(form.data[f.name])} onChange={(e) => form.setData(f.name, e.target.checked)} />
@@ -65,6 +67,8 @@ function Fields({ fields, form }: { fields: Field[]; form: ReturnType<typeof use
                                         </option>
                                     ))}
                                 </select>
+                            ) : f.type === 'richtext' ? (
+                                <RichEditor label={t(f.label)} value={form.data[f.name] ?? ''} onChange={(html) => form.setData(f.name, html)} minHeight={260} />
                             ) : f.type === 'textarea' ? (
                                 <textarea
                                     rows={4}
@@ -177,6 +181,16 @@ function Crud({ baseUrl, definition, rows, readOnly }: { baseUrl: string; defini
 
     return (
         <div className="space-y-5">
+            <div className="flex flex-wrap justify-end gap-2">
+                {rows.length > 0 && columns.length > 0 && (
+                    <TableExportMenu
+                        build={() => ({
+                            title: definition.label,
+                            subtitle: definition.subtitle,
+                            sections: [{ columns: columns.map((c) => ({ key: c, label: heading(c) })), rows: rows.map((r) => Object.fromEntries(columns.map((c) => [c, typeof r[c] === 'boolean' ? (r[c] ? 'Yes' : 'No') : (r[c] ?? '')]))) }],
+                        })}
+                    />
+                )}
             {!readOnly && (
                 <div className="flex justify-end">
                     <button
@@ -187,6 +201,7 @@ function Crud({ baseUrl, definition, rows, readOnly }: { baseUrl: string; defini
                     </button>
                 </div>
             )}
+            </div>
 
             {editing && (
                 <form onSubmit={submit} className="space-y-5 rounded-2xl border border-fuchsia-200 bg-white p-6 shadow-sm">

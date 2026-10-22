@@ -34,9 +34,9 @@ class AccountsController extends Controller
         \App\Support\Permissions::office($request);
         $search = trim((string) $request->query('search', ''));
 
-        $parents = DB::table('users')->where('role', 'parent')
-            ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('username', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%")))
-            ->orderBy('name')->limit(500)->get(['id', 'name', 'username', 'email', 'phone', 'is_active']);
+        $request->merge(['search' => $search]);
+        $dataset = \App\Support\Listing\Datasets::find('parents');
+        ['rows' => $parents, 'pagination' => $pagination] = \App\Support\Listing\Listing::page($dataset, $request);
 
         $children = DB::table('guardian_student')->join('users', 'users.id', '=', 'guardian_student.student_id')->leftJoin('student_profiles', 'student_profiles.user_id', '=', 'users.id')
             ->whereIn('guardian_id', $parents->pluck('id'))->get(['guardian_id', 'users.id', 'users.name', 'users.photo', 'student_profiles.admission_no', 'student_profiles.roll_no', 'student_profiles.class_name', 'student_profiles.section'])->map(function ($c) {
@@ -49,6 +49,9 @@ class AccountsController extends Controller
             ...$this->shared(),
             'rows' => $parents->map(fn ($p) => (array) $p + ['children' => ($children[$p->id] ?? collect())->values()]),
             'search' => $search,
+            'pagination' => $pagination,
+            'filters' => ['limit' => $pagination['limit'], 'sort' => $pagination['sort'], 'dir' => $pagination['dir']],
+            'exportColumns' => $dataset->columns(),
             'classes' => DB::table('academic_classes')->orderBy('sort_order')->pluck('name'),
         ]);
     }
@@ -117,7 +120,7 @@ class AccountsController extends Controller
         $rows = DB::table('users')->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')
             ->when($library, fn ($query) => $query->join('library_members', 'library_members.user_id', '=', 'users.id')->where('library_members.active', true))
             ->where('student_profiles.status', 'active')
-            ->tap(fn ($query) => \App\Support\TeacherScope::restrict($query, $request->user()))
+            ->when($request->query('scope') !== 'routine', fn ($query) => \App\Support\TeacherScope::restrict($query, $request->user()))
             ->when($class !== '', fn ($query) => $query->where('student_profiles.class_name', $class))
             ->when(in_array($section, ['A', 'B'], true), fn ($query) => $query->where('student_profiles.section', $section))
             ->when($q !== '', fn ($query) => $query->where(fn ($query) => $query->where('users.name', 'like', "%{$q}%")->orWhere('student_profiles.admission_no', 'like', "%{$q}%")->orWhere('users.username', 'like', "%{$q}%")->orWhere('student_profiles.roll_no', $q)
@@ -131,7 +134,7 @@ class AccountsController extends Controller
         return response()->json([
             'data' => $rows->map(fn ($r) => [
                 'id' => $r->id, 'name' => $r->name, 'admission_no' => $r->admission_no, 'roll_no' => $r->roll_no, 'class_name' => $r->class_name, 'section' => $r->section,
-                'card_no' => $r->card_no ?? null, 'photo' => \App\Support\Photos::url($r->photo), 'parents' => (int) ($linked[$r->id] ?? 0),
+                'card_no' => $r->card_no ?? null, 'photo' => \App\Support\Photos::url($r->photo), 'parents' => $request->query('scope') === 'routine' ? 0 : (int) ($linked[$r->id] ?? 0),
             ])->values(),
             'classes' => DB::table('academic_classes')->orderBy('sort_order')->pluck('name'),
         ]);
@@ -146,17 +149,17 @@ class AccountsController extends Controller
         $role = (string) $request->query('role', '');
         $status = (string) $request->query('status', '');
 
-        $rows = DB::table('users')
-            ->when(in_array($role, ['admin', 'teacher', 'staff', 'student', 'parent'], true), fn ($q) => $q->where('role', $role))
-            ->when($status === 'active', fn ($q) => $q->where('is_active', true))->when($status === 'inactive', fn ($q) => $q->where('is_active', false))
-            ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('username', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")))
-            ->orderBy('role')->orderBy('name')->limit(300)->get(['id', 'name', 'username', 'email', 'role', 'is_active']);
+        $request->merge(['search' => $search, 'role' => $role, 'status' => $status]);
+        $dataset = \App\Support\Listing\Datasets::find('users');
+        ['rows' => $rows, 'pagination' => $pagination] = \App\Support\Listing\Listing::page($dataset, $request);
 
         return Inertia::render('office/users', [
             ...$this->shared(),
             'rows' => $rows,
             'counts' => DB::table('users')->selectRaw('role, count(*) as total')->groupBy('role')->pluck('total', 'role'),
-            'filters' => ['search' => $search, 'role' => $role, 'status' => $status],
+            'filters' => ['search' => $search, 'role' => $role, 'status' => $status, 'limit' => $pagination['limit'], 'sort' => $pagination['sort'], 'dir' => $pagination['dir']],
+            'pagination' => $pagination,
+            'exportColumns' => $dataset->columns(),
             'me' => $request->user()->id,
         ]);
     }

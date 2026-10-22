@@ -22,6 +22,7 @@ class PortalData
 
         return [
             'name' => $user->name,
+            'photo' => asset('images/student.jpg'),
             'email' => $user->email,
             'phone' => $user->phone,
             'class' => $profile->class_name,
@@ -115,22 +116,24 @@ class PortalData
     {
         return DB::table('homework_items')
             ->where('user_id', $user->id)
-            ->orderBy('due_on')
+            ->orderByDesc('due_on')
             ->get()
             ->map(function ($row) {
-                $overdue = $row->status === 'todo' && Carbon::parse($row->due_on)->lt(today());
+                $due = Carbon::parse($row->due_on);
+                $submitted = $row->submitted_at ? Carbon::parse($row->submitted_at) : null;
 
                 return [
                     'id' => $row->id,
                     'title' => $row->title,
                     'subject' => $row->subject,
                     'teacher' => $row->teacher,
-                    'due_on' => Carbon::parse($row->due_on)->format('d-m-Y'),
-                    'status' => $overdue ? 'overdue' : $row->status,
+                    'due_on' => $due->format('d-m-Y'),
+                    'status' => $row->status,
+                    'late' => $submitted !== null && $submitted->gt($due->copy()->endOfDay()),
                     'instructions' => $row->instructions,
                     'note' => $row->note,
                     'remarks' => $row->remarks,
-                    'submitted_at' => $row->submitted_at ? Carbon::parse($row->submitted_at)->format('d-m-Y H:i') : null,
+                    'submitted_at' => $submitted?->format('d-m-Y H:i'),
                 ];
             })
             ->all();
@@ -155,12 +158,15 @@ class PortalData
 
     public static function fees(User $user): array
     {
-        $invoices = DB::table('fee_invoices')->where('user_id', $user->id)->orderBy('due_on')->get();
+        $invoices = DB::table('fee_invoices')->where('user_id', $user->id)->orderByDesc('due_on')->get();
         $payments = DB::table('fee_payments')->where('user_id', $user->id)->orderByDesc('paid_on')->get();
         $outstanding = $invoices->sum(fn ($row) => max(0, $row->payable - $row->paid));
+        $oldestDue = $invoices->filter(fn ($row) => $row->payable > $row->paid)->last()?->due_on;
 
         return [
             'total_outstanding' => (int) $outstanding,
+            'unpaid_count' => $invoices->filter(fn ($row) => $row->payable > $row->paid)->count(),
+            'oldest_due_date' => $oldestDue ? Carbon::parse($oldestDue)->format('d-m-Y') : null,
             'invoices' => $invoices->map(fn ($row) => [
                 'invoice_no' => $row->invoice_no,
                 'label' => $row->label,

@@ -19,8 +19,12 @@ class OfficeData
         ];
 
         if ($admin) {
-            array_unshift($actions, ['label' => 'New admission', 'note' => 'Enroll a student', 'href' => '/app/students/new']);
-            $actions[] = ['label' => 'Collect fee', 'note' => 'Record a payment', 'href' => '/app/fees'];
+            $actions = [
+                ['label' => 'New admission', 'note' => 'Enroll a student', 'href' => '/app/students/new'],
+                ['label' => 'Mark attendance', 'note' => "Open today's register", 'href' => '/app/attendance'],
+                ['label' => 'Collect fee', 'note' => 'Record a payment', 'href' => '/app/fees'],
+                ['label' => 'Publish notice', 'note' => 'Notify the school community', 'href' => '/app/notices'],
+            ];
         }
 
         $pulse = self::pulse();
@@ -37,8 +41,10 @@ class OfficeData
                 ['label' => 'Unpaid invoices', 'value' => (string) $pulse['unpaid'], 'note' => 'Unpaid or partially paid', 'tone' => 'amber', 'href' => $admin ? '/app/fees/dues' : '/app'],
             ],
             'snapshot' => array_values(array_filter([
-                ['label' => 'Overdue books', 'value' => '5', 'note' => 'Loans past their due date', 'href' => '/app/library/fines'],
+                ['label' => 'Collected today', 'value' => 'Tk '.number_format((int) DB::table('fee_payments')->whereDate('paid_on', today())->sum('amount')), 'note' => 'Payments received today', 'href' => '/app/fees/payments'],
                 $admin ? ['label' => 'Admission queue', 'value' => '3', 'note' => 'Applications awaiting review', 'href' => '/app/students/new'] : null,
+                $admin ? ['label' => 'Website enquiries', 'value' => '0', 'note' => 'Unread messages', 'href' => '/app/website/messages'] : null,
+                ['label' => 'Overdue books', 'value' => '5', 'note' => 'Loans past their due date', 'href' => '/app/library/fines'],
             ])),
             'actions' => $actions,
             'fees' => [
@@ -164,7 +170,7 @@ class OfficeData
                 $pending[] = $name;
             }
         }
-        sort($pending);
+        sort($pending, SORT_NATURAL);
 
         $sectionCount = max(count($sections), 1);
         $payments = DB::table('fee_payments')

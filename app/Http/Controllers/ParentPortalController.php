@@ -32,6 +32,7 @@ class ParentPortalController extends Controller
             'children' => $children->map(fn (User $child) => [
                 'id' => $child->id,
                 'name' => $child->name,
+                'photo' => asset('images/student.jpg'),
                 'class' => $child->profile?->class_name,
                 'section' => $child->profile?->section,
             ])->values(),

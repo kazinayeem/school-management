@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
+import { CalendarCheck, Download, Eye, FileText, RefreshCw, Search, Trophy, Upload, Wallet } from 'lucide-react';
+import { FormEvent, Fragment, useState } from 'react';
 
 export type Routine = {
     days: string[];
@@ -18,6 +19,7 @@ export type HomeworkItem = {
     teacher: string | null;
     due_on: string;
     status: string;
+    late: boolean;
     instructions: string | null;
     note: string | null;
     remarks: string | null;
@@ -29,6 +31,8 @@ export type Results = {
 };
 export type Fees = {
     total_outstanding: number;
+    unpaid_count: number;
+    oldest_due_date: string | null;
     invoices: { invoice_no: string; label: string; due_date: string | null; payable: number; paid: number; outstanding: number; status: string }[];
     payments: { receipt_no: string; date: string; method: string; amount: number; late_fee: number; status: string }[];
 };
@@ -74,10 +78,11 @@ const statusTone: Record<string, string> = {
     marked: 'bg-emerald-100 text-emerald-700',
     'on loan': 'bg-indigo-100 text-indigo-700',
     returned: 'bg-emerald-100 text-emerald-700',
+    cancelled: 'bg-slate-100 text-slate-500',
 };
 
 function Pill({ value }: { value: string }) {
-    return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${statusTone[value] ?? 'bg-slate-100 text-slate-600'}`}>{value}</span>;
+    return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone[value] ?? 'bg-slate-100 text-slate-600'}`}>{value}</span>;
 }
 
 function Empty({ children }: { children: string }) {
@@ -171,149 +176,327 @@ export function AttendanceBoard({ attendance }: { attendance: Attendance }) {
 }
 
 const homeworkLabel: Record<string, string> = {
-    todo: 'To do',
-    overdue: 'Past due',
-    submitted: 'Waiting to be marked',
-    marked: 'Marked',
+    todo: 'to do',
+    overdue: 'past due',
+    submitted: 'handed in',
+    marked: 'done',
 };
 
 export function HomeworkBoard({ items, canSubmit }: { items: HomeworkItem[]; canSubmit: boolean }) {
     const form = useForm({ note: '' });
+    const [open, setOpen] = useState<number | null>(null);
+    const [query, setQuery] = useState('');
+    const [subject, setSubject] = useState('');
+    const [teacher, setTeacher] = useState('');
+    const [status, setStatus] = useState('');
+    const [from, setFrom] = useState('');
+    const [to, setTo] = useState('');
+
+    const subjects = [...new Set(items.map((item) => item.subject))];
+    const teachers = [...new Set(items.map((item) => item.teacher).filter(Boolean))] as string[];
+    const stats = {
+        todo: items.filter((item) => item.status === 'todo').length,
+        overdue: items.filter((item) => item.status === 'overdue' || (item.status === 'submitted' && item.late)).length,
+        waiting: items.filter((item) => item.status === 'submitted').length,
+    };
+
+    const visible = items.filter((item) => {
+        if (query && !item.title.toLowerCase().includes(query.toLowerCase())) return false;
+        if (subject && item.subject !== subject) return false;
+        if (teacher && item.teacher !== teacher) return false;
+        if (status && item.status !== status) return false;
+        return true;
+    });
 
     const submit = (id: number) => (event: FormEvent) => {
         event.preventDefault();
-        form.post(route('student.homework.submit', id), { preserveScroll: true, onSuccess: () => form.reset() });
+        form.post(route('student.homework.submit', id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset();
+                setOpen(null);
+            },
+        });
     };
-
-    if (items.length === 0) {
-        return <Empty>No homework has been assigned.</Empty>;
-    }
-
-    return (
-        <div className="space-y-3">
-            {items.map((item) => (
-                <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                            <h3 className="font-semibold">{item.title}</h3>
-                            <p className="text-xs text-slate-500">
-                                {item.subject}
-                                {item.teacher ? ` · ${item.teacher}` : ''} · due {item.due_on}
-                            </p>
-                        </div>
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone[item.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                            {homeworkLabel[item.status] ?? item.status}
-                        </span>
-                    </div>
-                    {item.instructions && <p className="mt-3 text-sm whitespace-pre-line text-slate-700">{item.instructions}</p>}
-                    {item.note && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{item.note}</p>}
-                    {item.remarks && <p className="mt-2 text-xs text-slate-500">Teacher note: {item.remarks}</p>}
-                    {canSubmit && (item.status === 'todo' || item.status === 'overdue' || item.status === 'submitted') && (
-                        <form onSubmit={submit(item.id)} className="mt-3 flex flex-col gap-2 sm:flex-row">
-                            <input
-                                value={form.data.note}
-                                onChange={(event) => form.setData('note', event.target.value)}
-                                placeholder="Add a note for your teacher"
-                                className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-indigo-500"
-                            />
-                            <button className="h-10 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
-                                {item.status === 'submitted' ? 'Change' : 'Submit'}
-                            </button>
-                        </form>
-                    )}
-                </article>
-            ))}
-        </div>
-    );
-}
-
-export function ResultsBoard({ results }: { results: Results }) {
-    if (!results.summary) {
-        return <Empty>No published exams yet.</Empty>;
-    }
 
     return (
         <div className="space-y-4">
-            <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-4">
-                <div>
-                    <p className="text-xs text-slate-500">{results.summary.exam}</p>
-                    <p className="text-3xl font-bold text-indigo-600">GPA {results.summary.gpa}</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+                <StatCard label="To do" value={stats.todo} tone="text-slate-800" />
+                <StatCard label="Past due" value={stats.overdue} tone="text-rose-600" />
+                <StatCard label="Waiting to be marked" value={stats.waiting} tone="text-slate-800" />
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
+                    <label className="relative min-w-[180px] flex-1">
+                        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <input
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            placeholder="Search homework..."
+                            className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-[#b31299]"
+                        />
+                    </label>
+                    <select value={subject} onChange={(event) => setSubject(event.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm">
+                        <option value="">All subjects</option>
+                        {subjects.map((name) => <option key={name}>{name}</option>)}
+                    </select>
+                    <select value={teacher} onChange={(event) => setTeacher(event.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm">
+                        <option value="">All teachers</option>
+                        {teachers.map((name) => <option key={name}>{name}</option>)}
+                    </select>
+                    <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="From date" className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+                    <span className="text-xs text-slate-400">to</span>
+                    <input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+                    <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm">
+                        <option value="">Any status</option>
+                        <option value="todo">To do</option>
+                        <option value="overdue">Past due</option>
+                        <option value="submitted">Handed in</option>
+                        <option value="marked">Done</option>
+                    </select>
                 </div>
-                <Stat label="Class position" value={String(results.summary.class_position)} />
-                <Stat label="Section position" value={String(results.summary.section_position)} />
-                <Stat label="Result" value={results.summary.promotion_status} />
-            </section>
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
-                        <tr>
-                            <th className="px-4 py-3 text-left">Subject</th>
-                            <th className="px-4 py-3 text-right">Marks</th>
-                            <th className="px-4 py-3 text-center">Grade</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {results.subjects.map((subject) => (
-                            <tr key={subject.subject}>
-                                <td className="px-4 py-2.5 font-medium">{subject.subject}</td>
-                                <td className="px-4 py-2.5 text-right tabular-nums">
-                                    {subject.marks}/{subject.full_marks}
-                                </td>
-                                <td className="px-4 py-2.5 text-center">{subject.letter_grade}</td>
+
+                {visible.length === 0 ? (
+                    <p className="px-6 py-16 text-center text-sm text-slate-400">No homework matches these filters.</p>
+                ) : (
+                    <table className="w-full min-w-[820px] text-sm">
+                        <thead className="bg-slate-50 text-[11px] tracking-wide text-slate-500 uppercase">
+                            <tr>
+                                <th className="px-4 py-3 text-left">Homework</th>
+                                <th className="px-4 py-3 text-left">Subject</th>
+                                <th className="px-4 py-3 text-left">Teacher</th>
+                                <th className="px-4 py-3 text-left">Due</th>
+                                <th className="px-4 py-3 text-center">Status</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {visible.map((item) => {
+                                const label = homeworkLabel[item.status] ?? item.status;
+                                const late = item.late;
+                                const expanded = open === item.id;
+                                const rowTone = item.status === 'todo'
+                                    ? 'bg-rose-50/30'
+                                    : item.status === 'submitted'
+                                      ? 'bg-sky-50/40'
+                                      : 'hover:bg-slate-50/70';
+
+                                return (
+                                    <Fragment key={item.id}>
+                                        <tr className={rowTone}>
+                                            <td className="px-4 py-3 font-medium text-slate-800">{item.title}</td>
+                                            <td className="px-4 py-3 text-slate-600">{item.subject}</td>
+                                            <td className="px-4 py-3 text-slate-600">{item.teacher ?? '—'}</td>
+                                            <td className={`px-4 py-3 tabular-nums ${item.status === 'overdue' ? 'font-semibold text-rose-600' : 'text-slate-600'}`}>
+                                                {item.due_on}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone[item.status] ?? 'bg-slate-100 text-slate-600'}`}>{label}</span>
+                                                    {late && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-600">late</span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button type="button" onClick={() => setOpen(expanded ? null : item.id)} aria-label={`View ${item.title}`} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
+                                                        <Eye className="h-4 w-4" />
+                                                    </button>
+                                                    {canSubmit && item.status === 'submitted' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                form.setData('note', item.note ?? '');
+                                                                setOpen(item.id);
+                                                            }}
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                                        >
+                                                            <RefreshCw className="h-3.5 w-3.5" /> Change
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {expanded && (
+                                            <tr className="bg-slate-50/60">
+                                                <td colSpan={6} className="px-4 py-4">
+                                                    <div className="space-y-2 text-sm">
+                                                        {item.instructions && <p className="whitespace-pre-line text-slate-700">{item.instructions}</p>}
+                                                        {item.note && <p className="rounded-lg bg-white px-3 py-2 text-slate-600">Your note: {item.note}</p>}
+                                                        {item.remarks && <p className="text-xs text-slate-500">Teacher note: {item.remarks}</p>}
+                                                        {canSubmit && ['todo', 'overdue', 'submitted'].includes(item.status) && (
+                                                            <form onSubmit={submit(item.id)} className="flex flex-col gap-2 sm:flex-row">
+                                                                <input
+                                                                    value={form.data.note}
+                                                                    onChange={(event) => form.setData('note', event.target.value)}
+                                                                    placeholder="Add a note for your teacher"
+                                                                    className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#b31299]"
+                                                                />
+                                                                <button className="inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-[#b31299] px-4 text-sm font-semibold text-white hover:bg-[#9a0e84]">
+                                                                    <Upload className="h-4 w-4" /> {item.status === 'submitted' ? 'Update' : 'Submit'}
+                                                                </button>
+                                                            </form>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </div>
     );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, tone }: { label: string; value: number; tone: string }) {
     return (
-        <div>
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className="text-xl font-bold">{value}</p>
+        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{label}</p>
+            <p className={`mt-1 text-2xl font-bold tabular-nums ${tone}`}>{value}</p>
+        </div>
+    );
+}
+
+export function ResultsBoard({ results }: { results: Results }) {
+    const [exam, setExam] = useState('');
+    const summary = results.summary;
+
+    return (
+        <div className="space-y-5">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-900">My Results</h1>
+                <p className="mt-1 text-sm text-slate-500">Only officially published results and computed annual decisions appear here.</p>
+            </div>
+
+            {summary ? (
+                <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#a91093] via-[#b31299] to-[#7c3aed] p-5 text-white shadow-lg shadow-fuchsia-500/20">
+                    <Trophy className="absolute top-5 right-6 h-7 w-7 text-yellow-300" />
+                    <p className="text-[11px] font-semibold tracking-[0.16em] text-white/70 uppercase">Annual result</p>
+                    <h2 className="mt-1 text-lg font-semibold">Final academic standing</h2>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                        <ResultStat label="GPA" value={String(Number(summary.gpa))} />
+                        <ResultStat label="Class position" value={`#${summary.class_position}`} />
+                        <ResultStat label="Section position" value={`#${summary.section_position}`} />
+                        <ResultStat label="Decision" value={summary.promotion_status} />
+                    </div>
+                </section>
+            ) : (
+                <Empty>No annual result has been published yet.</Empty>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-xs font-medium text-slate-600">
+                    Session
+                    <select className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700">
+                        <option>All sessions</option>
+                    </select>
+                </label>
+                <label className="text-xs font-medium text-slate-600">
+                    View an exam result
+                    <select value={exam} onChange={(event) => setExam(event.target.value)} className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700">
+                        <option value="">Choose exam</option>
+                        {summary && <option value={summary.exam}>{summary.exam}</option>}
+                    </select>
+                </label>
+            </div>
+
+            {exam && (
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-100 px-4 py-3 font-semibold">{exam}</div>
+                    <table className="w-full text-sm">
+                        <thead className="bg-slate-50 text-[11px] tracking-wide text-slate-500 uppercase">
+                            <tr>
+                                <th className="px-4 py-3 text-left">Subject</th>
+                                <th className="px-4 py-3 text-right">Marks</th>
+                                <th className="px-4 py-3 text-center">Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {results.subjects.map((subject) => (
+                                <tr key={subject.subject}>
+                                    <td className="px-4 py-2.5 font-medium">{subject.subject}</td>
+                                    <td className="px-4 py-2.5 text-right tabular-nums">{subject.marks}/{subject.full_marks}</td>
+                                    <td className="px-4 py-2.5 text-center">{subject.letter_grade}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ResultStat({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
+            <p className="text-xs text-white/70">{label}</p>
+            <p className="mt-0.5 text-2xl font-bold">{value}</p>
         </div>
     );
 }
 
 export function FeesBoard({ fees }: { fees: Fees }) {
     return (
-        <div className="space-y-4">
-            <div className={`rounded-2xl border p-5 ${fees.total_outstanding > 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
-                <p className="text-xs font-semibold tracking-wide uppercase">{fees.total_outstanding > 0 ? 'Outstanding' : 'All clear'}</p>
-                <p className="mt-1 text-3xl font-bold tabular-nums">{fees.total_outstanding > 0 ? money(fees.total_outstanding) : 'Tk 0'}</p>
-                <p className="mt-1 text-sm text-slate-600">Pay at the accounts office. A receipt is added to the history below.</p>
+        <div className="space-y-5">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-900">My Fees</h1>
+                <p className="mt-1 text-sm text-slate-500">Your invoices and what is still due. Payments are made at the school counter or by your guardian in the parent portal.</p>
             </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+                <div className={`rounded-2xl border bg-white px-5 py-4 shadow-sm ${fees.total_outstanding > 0 ? 'border-amber-300' : 'border-emerald-200'}`}>
+                    <p className={`flex items-center gap-1.5 text-[11px] font-bold tracking-wide uppercase ${fees.total_outstanding > 0 ? 'text-amber-500' : 'text-emerald-600'}`}>
+                        <Wallet className="h-3.5 w-3.5" /> Outstanding
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{money(fees.total_outstanding)}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-slate-500 uppercase">
+                        <FileText className="h-3.5 w-3.5" /> Unpaid invoices
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{fees.unpaid_count}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-slate-500 uppercase">
+                        <CalendarCheck className="h-3.5 w-3.5" /> Oldest due date
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{fees.oldest_due_date ?? '—'}</p>
+                </div>
+            </div>
+
             <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold">Invoices</div>
                 {fees.invoices.length === 0 ? (
                     <p className="p-6 text-sm text-slate-400">No invoices yet. Invoices appear here once the school generates them.</p>
                 ) : (
-                    <table className="w-full min-w-[640px] text-sm">
-                        <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+                    <table className="w-full min-w-[760px] text-sm">
+                        <thead className="border-b border-slate-100 text-[11px] tracking-wide text-slate-500 uppercase">
                             <tr>
                                 <th className="px-4 py-3 text-left">Invoice</th>
-                                <th className="px-4 py-3 text-left">Due</th>
+                                <th className="px-4 py-3 text-left">Due date</th>
                                 <th className="px-4 py-3 text-right">Payable</th>
                                 <th className="px-4 py-3 text-right">Paid</th>
-                                <th className="px-4 py-3 text-right">Due amount</th>
+                                <th className="px-4 py-3 text-right">Outstanding</th>
                                 <th className="px-4 py-3 text-center">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {fees.invoices.map((invoice) => (
                                 <tr key={invoice.invoice_no}>
-                                    <td className="px-4 py-2.5">
+                                    <td className="px-4 py-3">
                                         <span className="block font-medium">{invoice.label}</span>
                                         <span className="block text-xs text-slate-400">{invoice.invoice_no}</span>
                                     </td>
-                                    <td className="px-4 py-2.5 text-slate-500">{invoice.due_date}</td>
-                                    <td className="px-4 py-2.5 text-right tabular-nums">{invoice.payable.toLocaleString()}</td>
-                                    <td className="px-4 py-2.5 text-right tabular-nums">{invoice.paid.toLocaleString()}</td>
-                                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{invoice.outstanding.toLocaleString()}</td>
-                                    <td className="px-4 py-2.5 text-center">
+                                    <td className="px-4 py-3 text-slate-500">{invoice.due_date}</td>
+                                    <td className="px-4 py-3 text-right tabular-nums">{invoice.payable.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-right tabular-nums">{invoice.paid.toLocaleString()}</td>
+                                    <td className={`px-4 py-3 text-right font-semibold tabular-nums ${invoice.outstanding > 0 ? 'text-amber-600' : 'text-slate-700'}`}>{invoice.outstanding.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-center">
                                         <Pill value={invoice.status} />
                                     </td>
                                 </tr>
@@ -322,30 +505,40 @@ export function FeesBoard({ fees }: { fees: Fees }) {
                     </table>
                 )}
             </div>
+
             <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold">Payment history</div>
                 {fees.payments.length === 0 ? (
                     <p className="p-6 text-sm text-slate-400">Once a payment is made at the counter, its receipt appears here.</p>
                 ) : (
-                    <table className="w-full min-w-[640px] text-sm">
-                        <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+                    <table className="w-full min-w-[680px] text-sm">
+                        <thead className="bg-slate-50 text-[11px] tracking-wide text-slate-500 uppercase">
                             <tr>
                                 <th className="px-4 py-3 text-left">Receipt</th>
                                 <th className="px-4 py-3 text-left">Date</th>
                                 <th className="px-4 py-3 text-left">Method</th>
                                 <th className="px-4 py-3 text-right">Amount</th>
                                 <th className="px-4 py-3 text-center">Status</th>
+                                <th className="px-4 py-3 text-right">Copy</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {fees.payments.map((payment) => (
                                 <tr key={payment.receipt_no}>
-                                    <td className="px-4 py-2.5 font-medium">{payment.receipt_no}</td>
-                                    <td className="px-4 py-2.5">{payment.date}</td>
-                                    <td className="px-4 py-2.5 capitalize">{payment.method}</td>
-                                    <td className="px-4 py-2.5 text-right tabular-nums">{(payment.amount + payment.late_fee).toLocaleString()}</td>
-                                    <td className="px-4 py-2.5 text-center">
+                                    <td className="px-4 py-3">
+                                        <span className="block font-medium">{payment.receipt_no}</span>
+                                        <span className="block text-xs text-slate-400">{(fees.invoices.find((invoice) => invoice.paid > 0) ?? fees.invoices[0])?.invoice_no ?? ''}</span>
+                                    </td>
+                                    <td className="px-4 py-3">{payment.date}</td>
+                                    <td className="px-4 py-3 capitalize">{payment.method}</td>
+                                    <td className="px-4 py-3 text-right font-medium tabular-nums">{(payment.amount + payment.late_fee).toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-center">
                                         <Pill value={payment.status} />
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                                            <Download className="h-3.5 w-3.5" /> PDF
+                                        </button>
                                     </td>
                                 </tr>
                             ))}

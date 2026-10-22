@@ -48,8 +48,8 @@ class PortalTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('portals/parent')
-                ->has('children', 2)
-                ->where('account.name', 'Amelia Parker')
+                ->has('children', 1)
+                ->where('account.name', 'David Parker')
                 ->where('profile.class', 'Class 8'));
 
         $this->get('/student')->assertForbidden();

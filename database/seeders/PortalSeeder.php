@@ -21,18 +21,15 @@ class PortalSeeder extends Seeder
         }
 
         $student->update(['name' => 'Ethan Parker', 'phone' => '01711000001']);
-        $parent->update(['name' => 'Amelia Parker', 'phone' => '01711000002']);
+        $parent->update(['name' => 'David Parker', 'phone' => '01711000002']);
         $nusrat->update(['name' => 'Nusrat Jahan', 'phone' => '01711000003']);
 
-        $this->profile($student, 'Class 8', 'A', '1', 4.86, 4, 2, 2000, 2);
+        $this->profile($student, 'Class 8', 'A', '1', 0, 4, 2, 2000, 2, 'Retain', '2026-06-10');
         $this->profile($nusrat, 'Class 5', 'B', '12', 3.92, 11, 4, 800, 1);
 
+        DB::table('guardian_student')->where('guardian_id', $parent->id)->delete();
         DB::table('guardian_student')->updateOrInsert(
             ['guardian_id' => $parent->id, 'student_id' => $student->id],
-            [],
-        );
-        DB::table('guardian_student')->updateOrInsert(
-            ['guardian_id' => $parent->id, 'student_id' => $nusrat->id],
             [],
         );
 
@@ -57,18 +54,18 @@ class PortalSeeder extends Seeder
             ['Mathematics', 80, 'A'],
             ['Science', 72, 'A-'],
         ]);
-        $this->fees($student->id, 1500, 500);
+        $this->fees($student->id, 1500, 500, true);
         $this->fees($nusrat->id, 800, 0);
-        $this->library($student->id, 'LIB-1044');
+        $this->library($student->id, 'LIB-1044', true);
         $this->library($nusrat->id, 'LIB-2210');
 
         DB::table('bus_assignments')->updateOrInsert(['user_id' => $student->id], [
-            'route' => 'Route 2 · Uttara',
-            'vehicle' => 'Bus 04',
-            'stop' => 'House 12, Road 7',
-            'landmark' => 'Near City Park',
-            'pickup_time' => '07:10',
-            'drop_time' => '14:20',
+            'route' => 'Mirpur Line',
+            'vehicle' => 'Bus 02',
+            'stop' => 'Kazipara',
+            'landmark' => 'Near Kazipara Metro Station',
+            'pickup_time' => '07:15',
+            'drop_time' => '14:30',
             'driver' => 'Karim Uddin',
             'driver_phone' => '01819000011',
             'fare' => 1200,
@@ -82,12 +79,12 @@ class PortalSeeder extends Seeder
         DB::table('leave_requests')->whereIn('user_id', [$student->id, $nusrat->id])->delete();
         DB::table('leave_requests')->insert([
             'user_id' => $student->id,
-            'leave_type' => 'Sick Leave',
-            'start_date' => '2026-09-02',
-            'end_date' => '2026-09-03',
-            'days' => 2,
-            'reason' => 'Fever',
-            'status' => 'approved',
+            'leave_type' => 'Casual Leave',
+            'start_date' => '2026-07-14',
+            'end_date' => '2026-07-14',
+            'days' => 1,
+            'reason' => 'Family event',
+            'status' => 'cancelled',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -108,22 +105,10 @@ class PortalSeeder extends Seeder
                 'published_on' => '2026-07-28',
                 'expires_on' => '2026-10-26',
             ],
-            [
-                'title' => 'Half yearly exam routine published',
-                'body' => 'Check My Calendar and My Results for the published exam window.',
-                'published_on' => now()->subDays(2)->toDateString(),
-                'expires_on' => now()->subDay()->toDateString(),
-            ],
-            [
-                'title' => 'Fee counter open until 4 PM',
-                'body' => 'Unpaid invoices can be cleared at the accounts office.',
-                'published_on' => now()->subDays(5)->toDateString(),
-                'expires_on' => now()->subDay()->toDateString(),
-            ],
         ]);
     }
 
-    private function profile(User $user, string $class, string $section, string $roll, float $gpa, int $classPos, int $sectionPos, int $dues, int $count): void
+    private function profile(User $user, string $class, string $section, string $roll, float $gpa, int $classPos, int $sectionPos, int $dues, int $count, string $promotion = 'Pass', string $dueDate = '2026-11-10'): void
     {
         StudentProfile::updateOrCreate(['user_id' => $user->id], [
             'class_name' => $class,
@@ -136,10 +121,10 @@ class PortalSeeder extends Seeder
             'exam_name' => 'Half Yearly Examination 2026',
             'class_position' => $classPos,
             'section_position' => $sectionPos,
-            'promotion_status' => 'Pass',
+            'promotion_status' => $promotion,
             'dues_total' => $dues,
             'dues_count' => $count,
-            'dues_due_date' => '2026-11-10',
+            'dues_due_date' => $dueDate,
         ]);
     }
 
@@ -199,7 +184,7 @@ class PortalSeeder extends Seeder
         $index = 0;
         $date = now()->startOfMonth();
 
-        while ($date->lte(today())) {
+        while ($date->lt(today())) {
             if (! in_array($date->dayOfWeek, [Carbon::FRIDAY, Carbon::SATURDAY], true)) {
                 $status = match ($index % 11) {
                     0 => 'late',
@@ -228,26 +213,12 @@ class PortalSeeder extends Seeder
         DB::table('homework_items')->insert([
             [
                 'user_id' => $user->id,
-                'title' => 'Algebra exercise 4.2',
-                'subject' => 'Mathematics',
-                'teacher' => 'John Smith',
-                'due_on' => now()->addDay()->toDateString(),
-                'status' => 'todo',
-                'instructions' => 'Complete the odd-numbered problems and show each step.',
-                'note' => null,
-                'remarks' => null,
-                'submitted_at' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => $user->id,
-                'title' => 'English essay: My school',
+                'title' => 'Chapter 6 revision worksheet',
                 'subject' => 'English',
                 'teacher' => 'Alisha Henry',
-                'due_on' => now()->subDay()->toDateString(),
+                'due_on' => '2026-08-06',
                 'status' => 'todo',
-                'instructions' => 'Write 250 words. Handwriting must be neat.',
+                'instructions' => 'Complete the revision worksheet and bring it to class.',
                 'note' => null,
                 'remarks' => null,
                 'submitted_at' => null,
@@ -256,29 +227,29 @@ class PortalSeeder extends Seeder
             ],
             [
                 'user_id' => $user->id,
-                'title' => 'Science lab report',
-                'subject' => 'Science',
-                'teacher' => 'Owen Gallagher',
-                'due_on' => now()->addDays(3)->toDateString(),
+                'title' => 'Essay: A rainy day in Dhaka',
+                'subject' => 'Bangladesh & Global Studies',
+                'teacher' => 'Rosalind Meyer',
+                'due_on' => '2026-08-02',
                 'status' => 'submitted',
-                'instructions' => 'Include the aim, diagram, and conclusion.',
-                'note' => 'Submitted the diagram in the notebook.',
+                'instructions' => 'Write at least 250 words about a rainy day in Dhaka.',
+                'note' => 'Handed in late.',
                 'remarks' => null,
-                'submitted_at' => now()->subDay(),
+                'submitted_at' => '2026-08-03 09:20:00',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
                 'user_id' => $user->id,
-                'title' => 'Bangla paragraph',
+                'title' => 'Exercise 4B — Questions 1 to 10',
                 'subject' => 'Bangla',
                 'teacher' => 'Rebecca Lawson',
-                'due_on' => now()->subDays(6)->toDateString(),
+                'due_on' => '2026-07-29',
                 'status' => 'marked',
-                'instructions' => 'Write about a rainy day.',
-                'note' => 'Done in class.',
+                'instructions' => 'Answer questions 1 to 10 in your exercise book.',
+                'note' => 'Done late.',
                 'remarks' => 'Good work',
-                'submitted_at' => now()->subDays(6),
+                'submitted_at' => '2026-07-30 10:05:00',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -299,10 +270,44 @@ class PortalSeeder extends Seeder
         ], $subjects));
     }
 
-    private function fees(int $userId, int $tuition, int $exam): void
+    private function fees(int $userId, int $tuition, int $exam, bool $targetDemo = false): void
     {
         DB::table('fee_invoices')->where('user_id', $userId)->delete();
         DB::table('fee_payments')->where('user_id', $userId)->delete();
+
+        if ($targetDemo) {
+            DB::table('fee_invoices')->insert([
+                [
+                    'user_id' => $userId,
+                    'invoice_no' => 'INV-2026-000011',
+                    'label' => 'July 2026',
+                    'due_on' => '2026-07-10',
+                    'payable' => 1900,
+                    'paid' => 0,
+                    'status' => 'unpaid',
+                ],
+                [
+                    'user_id' => $userId,
+                    'invoice_no' => 'INV-2026-000001',
+                    'label' => 'June 2026',
+                    'due_on' => '2026-06-10',
+                    'payable' => 1900,
+                    'paid' => 1800,
+                    'status' => 'partial',
+                ],
+            ]);
+            DB::table('fee_payments')->insert([
+                'user_id' => $userId,
+                'receipt_no' => 'RCP-2026-000001',
+                'paid_on' => '2026-07-30',
+                'method' => 'Cash',
+                'amount' => 1900,
+                'late_fee' => 0,
+                'status' => 'paid',
+            ]);
+
+            return;
+        }
 
         $rows = [[
             'user_id' => $userId,
@@ -338,9 +343,41 @@ class PortalSeeder extends Seeder
         ]);
     }
 
-    private function library(int $userId, string $card): void
+    private function library(int $userId, string $card, bool $targetDemo = false): void
     {
         DB::table('library_loans')->where('user_id', $userId)->delete();
+
+        if ($targetDemo) {
+            DB::table('library_loans')->insert([
+                [
+                    'user_id' => $userId,
+                    'title' => 'Ikigai',
+                    'author' => 'Héctor García',
+                    'card_no' => $card,
+                    'member_since' => '2026-01-12',
+                    'issued_on' => '2026-07-20',
+                    'due_on' => '2026-08-03',
+                    'returned_on' => null,
+                    'fine' => 50,
+                    'status' => 'overdue',
+                ],
+                [
+                    'user_id' => $userId,
+                    'title' => 'English Grammar in Use',
+                    'author' => 'Raymond Murphy',
+                    'card_no' => $card,
+                    'member_since' => '2026-01-12',
+                    'issued_on' => '2026-06-01',
+                    'due_on' => '2026-06-15',
+                    'returned_on' => '2026-06-14',
+                    'fine' => 0,
+                    'status' => 'returned',
+                ],
+            ]);
+
+            return;
+        }
+
         DB::table('library_loans')->insert([
             [
                 'user_id' => $userId,

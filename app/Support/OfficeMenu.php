@@ -4,6 +4,17 @@ namespace App\Support;
 
 class OfficeMenu
 {
+    /** @var array<string, string> */
+    private const HIDDEN = [
+        '/app/website/messages' => 'Website Enquiries',
+        '/app/settings/general' => 'General Settings',
+        '/app/settings/grading' => 'Grading Settings',
+        '/app/settings/attendance' => 'Attendance Rules',
+        '/app/system/users' => 'User Accounts',
+        '/app/sms' => 'Send SMS',
+        '/app/sms/log' => 'SMS Delivery Log',
+    ];
+
     /** @return list<array{caption: ?string, items: list<array<string, mixed>>}> */
     public static function for(string $role): array
     {
@@ -14,6 +25,10 @@ class OfficeMenu
     {
         if (preg_match('#^/app/students/\d+$#', $path)) {
             $path = '/app/students';
+        }
+
+        if ($role === 'admin' && isset(self::HIDDEN[$path])) {
+            return true;
         }
 
         foreach (self::flat($role) as $item) {
@@ -31,6 +46,10 @@ class OfficeMenu
             if ($item['href'] === $path) {
                 return $item;
             }
+        }
+
+        if ($role === 'admin' && isset(self::HIDDEN[$path])) {
+            return ['label' => self::HIDDEN[$path], 'href' => $path];
         }
 
         return null;
@@ -137,19 +156,20 @@ class OfficeMenu
             ['caption' => 'People', 'items' => [
                 ['label' => 'Students', 'icon' => 'Users', 'children' => [
                     ['label' => 'Student List', 'href' => '/app/students'],
-                    ['label' => 'New Admission', 'href' => '/app/students/new'],
                     ['label' => 'Roll Numbers', 'href' => '/app/students/roll-numbers'],
                     ['label' => 'ID Cards', 'href' => '/app/students/id-cards'],
                 ]],
+                ['label' => 'Online Admission', 'href' => '/app/students/new', 'icon' => 'Users'],
                 ['label' => 'Teachers & Staff', 'icon' => 'Users', 'children' => [
                     ['label' => 'Staff List', 'href' => '/app/staff'],
                     ['label' => 'Add Staff', 'href' => '/app/staff/new'],
-                    ['label' => 'Parent Accounts', 'href' => '/app/parents'],
                 ]],
+                ['label' => 'Parent Accounts', 'href' => '/app/parents', 'icon' => 'Users'],
                 ['label' => 'Leave', 'icon' => 'CalendarOff', 'children' => [
                     ['label' => 'Applications', 'href' => '/app/leave'],
                     ['label' => 'Leave Types', 'href' => '/app/leave/types'],
                 ]],
+                ['label' => 'Certificates', 'href' => '/app/certificates', 'icon' => 'GraduationCap'],
             ]],
             ['caption' => 'Finance', 'items' => [
                 ['label' => 'Fees', 'icon' => 'Wallet', 'children' => [
@@ -158,10 +178,12 @@ class OfficeMenu
                     ['label' => 'Collection Report', 'href' => '/app/fees/payments'],
                     ['label' => 'Fee Structure', 'href' => '/app/fees/structure'],
                 ]],
+                ['label' => 'Online Payments', 'href' => '/app/payments', 'icon' => 'Wallet'],
                 ['label' => 'Payroll', 'icon' => 'Wallet', 'children' => [
                     ['label' => 'Payroll Runs', 'href' => '/app/payroll'],
                     ['label' => 'Salary Structures', 'href' => '/app/payroll/structures'],
                 ]],
+                ['label' => 'Accounting', 'href' => '/app/accounting', 'icon' => 'Wallet'],
             ]],
             ['caption' => 'Campus', 'items' => [
                 ['label' => 'Library', 'icon' => 'BookOpen', 'children' => [
@@ -177,18 +199,6 @@ class OfficeMenu
             ]],
             ['caption' => 'Communication', 'items' => [
                 ['label' => 'Notices', 'href' => '/app/notices', 'icon' => 'Megaphone'],
-                ['label' => 'SMS', 'icon' => 'Megaphone', 'children' => [
-                    ['label' => 'Send SMS', 'href' => '/app/sms'],
-                    ['label' => 'Delivery Log', 'href' => '/app/sms/log'],
-                ]],
-            ]],
-            ['caption' => 'System', 'items' => [
-                ['label' => 'User Accounts', 'href' => '/app/system/users', 'icon' => 'Settings'],
-                ['label' => 'Settings', 'icon' => 'Settings', 'children' => [
-                    ['label' => 'General', 'href' => '/app/settings/general'],
-                    ['label' => 'Grading', 'href' => '/app/settings/grading'],
-                    ['label' => 'Attendance Rules', 'href' => '/app/settings/attendance'],
-                ]],
             ]],
         ];
     }

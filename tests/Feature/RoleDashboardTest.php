@@ -38,7 +38,7 @@ class RoleDashboardTest extends TestCase
             ->component('office/home')
             ->where('roleLabel', $role === 'admin' ? 'Super Admin' : 'Teacher')
             ->has('dashboard.metrics', 4)
-            ->has('navigation', $role === 'admin' ? 7 : 5));
+            ->has('navigation', $role === 'admin' ? 6 : 5));
     }
 
     public function test_login_with_wrong_role_fails(): void

@@ -48,13 +48,14 @@ export function OfficeShell({
     roleLabel,
     children,
 }: PropsWithChildren<{ navigation: Group[]; roleLabel: string }>) {
-    const { auth, name } = usePage<SharedData>().props;
+    const { auth, name, branding } = usePage<SharedData>().props;
     const path = usePage().url.split('?')[0];
     const [open, setOpen] = useState(true);
     const [narrow, setNarrow] = useState(false);
     const [search, setSearch] = useState(false);
     const [query, setQuery] = useState('');
     const [dark, setDark] = useState(false);
+    const [languages, setLanguages] = useState(false);
     const [expanded, setExpanded] = useState<string | null>(null);
 
     const links = useMemo(
@@ -73,23 +74,20 @@ export function OfficeShell({
         <div className={`admin-shell flex min-h-screen ${dark ? 'bg-slate-950' : 'bg-slate-50'}`}>
             {open && <button aria-label="Close menu" className="fixed inset-0 z-30 bg-slate-900/50 lg:hidden" onClick={() => setOpen(false)} />}
             <aside
-                className={`admin-sidebar fixed inset-y-0 left-0 z-40 flex flex-col bg-slate-900 text-slate-300 transition-all duration-200 ${
+                className={`admin-sidebar fixed inset-y-0 left-0 z-40 flex flex-col bg-[#0c1222] text-slate-300 transition-all duration-200 ${
                     narrow ? 'w-[72px]' : 'w-[260px]'
                 } ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
             >
-                <div className="flex h-16 shrink-0 items-center gap-3 px-4">
-                    <Link href="/app" className="flex min-w-0 items-center gap-2 text-white">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600">
-                            <GraduationCap className="h-5 w-5" />
-                        </span>
-                        {!narrow && <span className="truncate font-semibold">{name}</span>}
+                <div className="flex h-20 shrink-0 items-center px-5">
+                    <Link href="/app" className="flex min-w-0 items-center text-white" aria-label={name}>
+                        <img src={branding.logoWhite} alt={name} className={`${narrow ? 'h-8 w-8 object-cover object-left' : 'h-11 w-auto max-w-[200px]'} object-contain object-left`} />
                     </Link>
                 </div>
                 <nav className="sidebar-scroll flex-1 overflow-y-auto px-3 pt-3 pb-4">
                     {navigation.map((group) => (
-                        <div key={group.caption ?? 'home'} className={group.caption ? 'pt-4' : undefined}>
+                        <div key={group.caption ?? 'home'} className={group.caption ? 'pt-3' : undefined}>
                             {group.caption && !narrow && (
-                                <p className="px-3 pt-1 pb-1 text-[11px] font-semibold tracking-widest text-slate-500 uppercase">{group.caption}</p>
+                                <p className="px-3 pb-1 text-[10px] font-semibold tracking-widest text-slate-500 uppercase">{group.caption}</p>
                             )}
                             {group.items.map((item) => {
                                 const Icon = icons[item.icon ?? ''] ?? LayoutGrid;
@@ -102,8 +100,8 @@ export function OfficeShell({
                                             <button
                                                 type="button"
                                                 onClick={() => setExpanded(isOpen ? null : item.label)}
-                                                className={`mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-slate-800 hover:text-white ${
-                                                    active ? 'bg-indigo-600/15 font-medium text-white' : ''
+                                                className={`mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors hover:bg-slate-800 hover:text-white ${
+                                                    active ? 'bg-gradient-to-r from-[#6d1167] to-[#4c1d95] font-medium text-white' : ''
                                                 }`}
                                             >
                                                 <Icon className="h-4 w-4 shrink-0" />
@@ -120,8 +118,8 @@ export function OfficeShell({
                                                         <Link
                                                             key={child.href}
                                                             href={child.href}
-                                                            className={`block truncate rounded-lg px-3 py-1.5 text-sm hover:bg-slate-800 hover:text-white ${
-                                                                path === child.href ? 'bg-indigo-600/20 text-white shadow-[inset_2px_0_0_0_#6366f1]' : ''
+                                                            className={`block truncate rounded-lg px-3 py-1.5 text-[13px] hover:bg-slate-800 hover:text-white ${
+                                                                path === child.href ? 'bg-gradient-to-r from-[#6d1167] to-[#4c1d95] text-white' : ''
                                                             }`}
                                                         >
                                                             {child.label}
@@ -137,8 +135,8 @@ export function OfficeShell({
                                     <Link
                                         key={item.href}
                                         href={item.href!}
-                                        className={`mt-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-slate-800 hover:text-white ${
-                                            path === item.href ? 'bg-indigo-600/20 text-white shadow-[inset_2px_0_0_0_#6366f1]' : ''
+                                        className={`mt-0.5 flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors hover:bg-slate-800 hover:text-white ${
+                                            path === item.href ? 'bg-gradient-to-r from-[#6d1167] to-[#4c1d95] text-white' : ''
                                         }`}
                                     >
                                         <Icon className="h-4 w-4 shrink-0" />
@@ -149,9 +147,8 @@ export function OfficeShell({
                         </div>
                     ))}
                 </nav>
-                <button type="button" onClick={() => setNarrow(!narrow)} className="m-3 hidden items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-400 hover:bg-slate-800 lg:flex">
-                    <PanelLeft className="h-4 w-4" />
-                    {!narrow && 'Collapse sidebar'}
+                <button type="button" aria-label="Collapse sidebar" onClick={() => setNarrow(!narrow)} className="m-3 hidden items-center justify-center rounded-lg py-2 text-lg text-slate-500 hover:bg-slate-800 hover:text-white lg:flex">
+                    «
                 </button>
             </aside>
 
@@ -161,6 +158,20 @@ export function OfficeShell({
                         <PanelLeft className="h-5 w-5" />
                     </button>
                     <div className="relative ms-auto flex shrink-0 items-center gap-1 sm:gap-3">
+                        <div className="relative hidden sm:block">
+                            <button type="button" onClick={() => setLanguages(!languages)} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm hover:bg-slate-50">
+                                <span>🇬🇧</span> English <ChevronDown className="h-3.5 w-3.5" />
+                            </button>
+                            {languages && (
+                                <div className="absolute right-0 z-30 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                                    {branding.languages.map((language) => (
+                                        <button key={language.code} type="button" onClick={() => setLanguages(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50">
+                                            <span>{language.flag}</span> {language.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                         <button aria-label="Search admin pages" onClick={() => setSearch(!search)} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 shadow-sm hover:bg-slate-100">
                             <Search className="h-4 w-4" />
                         </button>

@@ -23,7 +23,7 @@ class RoleDashboardTest extends TestCase
     {
         return [
             'admin' => ['superadmin', 'admin'],
-            'staff' => ['staff', 'staff'],
+            'staff' => ['jsmith', 'staff'],
         ];
     }
 
@@ -68,7 +68,7 @@ class RoleDashboardTest extends TestCase
             ->get('/app/students')
             ->assertInertia(fn (Assert $page) => $page->component('office/module')->where('module.title', 'Students'));
 
-        $this->actingAs(User::where('username', 'staff')->first())
+        $this->actingAs(User::where('username', 'jsmith')->first())
             ->get('/app/fees')
             ->assertNotFound();
     }

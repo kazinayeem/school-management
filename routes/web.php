@@ -3,9 +3,26 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('welcome');
-})->name('home');
+Route::get('/', [\App\Http\Controllers\PublicController::class, 'home'])->name('home');
+Route::get('about', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'about');
+Route::get('facilities', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'facilities');
+Route::get('principal-message', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'principal-message');
+Route::get('mission-and-vision', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'mission-and-vision');
+Route::get('school-uniform', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'school-uniform');
+Route::get('privacy-policy', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'privacy-policy');
+Route::get('terms-and-conditions', [\App\Http\Controllers\PublicController::class, 'page'])->defaults('slug', 'terms-and-conditions');
+Route::get('teachers', [\App\Http\Controllers\PublicController::class, 'teachers']);
+Route::get('gallery', [\App\Http\Controllers\PublicController::class, 'gallery']);
+Route::get('notices', [\App\Http\Controllers\PublicController::class, 'notices']);
+Route::get('notices/{notice}', [\App\Http\Controllers\PublicController::class, 'notice'])->whereNumber('notice');
+Route::get('events', [\App\Http\Controllers\PublicController::class, 'events']);
+Route::get('events/{event}', [\App\Http\Controllers\PublicController::class, 'event']);
+Route::get('contact', [\App\Http\Controllers\PublicController::class, 'contact']);
+Route::post('contact', [\App\Http\Controllers\PublicController::class, 'storeContact'])->name('contact.store');
+Route::get('admission', [\App\Http\Controllers\PublicController::class, 'admission']);
+Route::post('admission', [\App\Http\Controllers\PublicController::class, 'storeAdmission'])->name('admission.store');
+Route::post('admission/track', [\App\Http\Controllers\PublicController::class, 'trackAdmission'])->name('admission.track');
+Route::get('results', [\App\Http\Controllers\PublicController::class, 'results']);
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', \App\Http\Controllers\DashboardController::class)->name('dashboard');

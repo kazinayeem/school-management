@@ -19,7 +19,8 @@ class OfficeRosterSeeder extends Seeder
             return;
         }
 
-        User::where('username', 'like', 'mate-%')->orWhere('username', 'like', 'roster-%')->orWhere('username', 'like', 'teacher-%')->delete();
+        User::where('username', 'like', 'mate-%')->orWhere('username', 'like', 'roster-%')->delete();
+        User::where('role', 'staff')->where('username', '!=', 'jsmith')->delete();
 
         $ethan->profile?->update([
             'admission_no' => '2026-00001',

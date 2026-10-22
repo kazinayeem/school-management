@@ -36,7 +36,7 @@ class OfficeTest extends TestCase
     public function test_staff_login_opens_the_same_dashboard_with_a_smaller_menu(): void
     {
         $this->post('/login', [
-            'login' => 'staff',
+            'login' => 'jsmith',
             'password' => 'Demo@1234',
             'role' => 'staff',
         ])->assertRedirect('/app');
@@ -54,7 +54,7 @@ class OfficeTest extends TestCase
 
     public function test_staff_can_mark_attendance_publish_a_notice_and_open_a_student(): void
     {
-        $staff = User::where('username', 'staff')->first();
+        $staff = User::where('username', 'jsmith')->first();
         $ethan = User::where('username', 'student')->first();
 
         $this->actingAs($staff)

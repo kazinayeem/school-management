@@ -338,10 +338,10 @@ class OfficeData
             ->where('status', 'active')
             ->select('class_name', 'section')
             ->distinct()
-            ->orderBy('class_name')
-            ->orderBy('section')
             ->get()
+            ->sortBy(fn ($row) => [((int) filter_var($row->class_name, FILTER_SANITIZE_NUMBER_INT)) * 10 + ($row->section === 'B' ? 1 : 0)])
             ->map(fn ($row) => $row->class_name.'-'.$row->section)
+            ->values()
             ->all();
     }
 

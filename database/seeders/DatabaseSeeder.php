@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
         $accounts = [
             ['superadmin', 'admin', 'Super Admin'],
             ['jsmith', 'staff', 'John Smith'],
-            ['staff', 'staff', 'John Smith'],
+            ['jsmith', 'staff', 'John Smith'],
             ['student', 'student', 'Ethan Parker'],
             ['nusrat', 'student', 'Nusrat Jahan'],
             ['parent', 'parent', 'Amelia Parker'],

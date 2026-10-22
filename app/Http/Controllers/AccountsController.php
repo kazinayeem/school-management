@@ -129,6 +129,7 @@ class AccountsController extends Controller
             'email' => ['nullable', 'email', 'max:150', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'max:100'],
         ]);
+        $data['email'] ??= null;
         User::create(['name' => $data['name'], 'username' => $data['username'], 'email' => $data['email'] ?: "{$data['username']}@borno.test", 'role' => 'admin', 'password' => $data['password'], 'is_active' => true]);
         Audit::log('created', 'Admin account', $data['name']);
 
@@ -167,7 +168,7 @@ class AccountsController extends Controller
 
     private function parentData(Request $request, ?int $id): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'username' => ['nullable', 'string', 'max:50', 'alpha_dash', Rule::unique('users', 'username')->ignore($id)],
             'email' => ['nullable', 'email', 'max:150', Rule::unique('users', 'email')->ignore($id)],
@@ -175,6 +176,11 @@ class AccountsController extends Controller
             'password' => [$id === null ? 'required' : 'nullable', 'string', 'min:8', 'max:100'],
             'children' => ['nullable', 'string', 'max:500'],
         ]);
+        foreach (['username', 'email', 'phone', 'password', 'children'] as $optional) {
+            $data[$optional] ??= null;
+        }
+
+        return $data;
     }
 
     /** @return list<int>|array{error: string} */

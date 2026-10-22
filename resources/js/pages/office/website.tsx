@@ -14,7 +14,14 @@ type Field = {
     default?: unknown;
     options?: { value: string; label: string }[];
 };
-type Definition = { label: string; subtitle: string; columns?: string[]; column_labels?: Record<string, string>; fields: Field[] };
+type Definition = {
+    label: string;
+    subtitle: string;
+    columns?: string[];
+    column_labels?: Record<string, string>;
+    fields: Field[];
+    test?: { url: string; label: string } | null;
+};
 type Row = Record<string, any> & { id: number };
 
 const input = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-fuchsia-500';
@@ -84,6 +91,40 @@ function Fields({ fields, form }: { fields: Field[]; form: ReturnType<typeof use
     );
 }
 
+function TestBox({ test }: { test: { url: string; label: string } }) {
+    const { t } = useI18n();
+    const form = useForm({ email: '' });
+
+    return (
+        <form
+            onSubmit={(e: FormEvent) => {
+                e.preventDefault();
+                form.post(test.url, { preserveScroll: true });
+            }}
+            className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+            <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">{t('Send the test to')}</label>
+                <input
+                    type="email"
+                    className={input}
+                    value={form.data.email}
+                    onChange={(e) => form.setData('email', e.target.value)}
+                    placeholder="you@example.com"
+                />
+                {form.errors.email && <p className="mt-1 text-xs text-red-600">{form.errors.email}</p>}
+            </div>
+            <button
+                disabled={form.processing}
+                className="rounded-lg border border-fuchsia-700 px-5 py-2 text-sm font-semibold text-fuchsia-700 hover:bg-fuchsia-50 disabled:opacity-60"
+            >
+                {t(test.label)}
+            </button>
+            <p className="w-full text-xs text-slate-500">{t('Save your settings first. The test uses the saved settings.')}</p>
+        </form>
+    );
+}
+
 function Settings({ definition, values, baseUrl }: { definition: Definition; values: Record<string, any>; baseUrl: string }) {
     const { t } = useI18n();
     const form = useForm<Record<string, any>>(values);
@@ -94,15 +135,18 @@ function Settings({ definition, values, baseUrl }: { definition: Definition; val
     };
 
     return (
-        <form onSubmit={submit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <Fields fields={definition.fields} form={form} />
-            <button
-                disabled={form.processing}
-                className="rounded-lg bg-fuchsia-700 px-5 py-2 text-sm font-semibold text-white hover:bg-fuchsia-800 disabled:opacity-60"
-            >
-                {t('Save settings')}
-            </button>
-        </form>
+        <>
+            <form onSubmit={submit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <Fields fields={definition.fields} form={form} />
+                <button
+                    disabled={form.processing}
+                    className="rounded-lg bg-fuchsia-700 px-5 py-2 text-sm font-semibold text-white hover:bg-fuchsia-800 disabled:opacity-60"
+                >
+                    {t('Save settings')}
+                </button>
+            </form>
+            {definition.test && <TestBox test={definition.test} />}
+        </>
     );
 }
 

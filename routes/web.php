@@ -33,6 +33,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('waivers', 'storeWaiver')->name('fees.waivers.store');
         Route::put('waivers/{id}', 'toggleWaiver')->whereNumber('id')->name('fees.waivers.toggle');
         Route::delete('waivers/{id}', 'destroyWaiver')->whereNumber('id')->name('fees.waivers.destroy');
+        Route::get('dues', 'dues')->name('fees.dues');
+        Route::post('dues/remind', 'remindDues')->name('fees.dues.remind');
+        Route::get('payments', 'payments')->name('fees.payments');
+        Route::get('payments/export', 'exportPayments')->name('fees.payments.export');
         Route::get('online', 'online')->name('fees.online');
         Route::post('online', 'storeOnline')->name('fees.online.store');
         Route::put('online/{id}', 'reconcile')->whereNumber('id')->name('fees.online.reconcile');
@@ -69,6 +73,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('stops', 'storeStop')->name('transport.stops.store');
         Route::put('stops/{id}', 'updateStop')->whereNumber('id')->name('transport.stops.update');
         Route::delete('stops/{id}', 'destroyStop')->whereNumber('id')->name('transport.stops.destroy');
+    });
+
+    Route::controller(\App\Http\Controllers\AttendanceController::class)->prefix('app/attendance')->group(function () {
+        Route::get('register', 'register')->name('attendance.register');
+        Route::post('punches', 'syncPunches')->name('attendance.punches');
+        Route::get('staff', 'staff')->name('attendance.staff');
+        Route::post('staff', 'saveStaff')->name('attendance.staff.save');
+        Route::post('staff/punches', 'syncStaffPunches')->name('attendance.staff.punches');
     });
 
     Route::controller(\App\Http\Controllers\ExamsController::class)->prefix('app/exams')->group(function () {
@@ -115,6 +127,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/', 'send')->name('sms.send');
         Route::get('log', 'log')->name('sms.log');
         Route::put('log/{id}', 'mark')->whereNumber('id')->name('sms.mark');
+        Route::post('log/deliver', 'deliverQueued')->name('sms.deliver');
     });
 
     Route::controller(\App\Http\Controllers\SystemController::class)->group(function () {
@@ -130,6 +143,8 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('{name}', 'destroy')->name('backup.destroy');
         Route::post('{name}/restore', 'restore')->name('backup.restore');
     });
+
+    Route::post('app/settings/mail/test', [\App\Http\Controllers\SettingsFormController::class, 'testMail'])->name('settings.mail.test');
 
     Route::controller(\App\Http\Controllers\SettingsFormController::class)->group(function () {
         foreach (['general' => '/app/settings/general', 'attendance' => '/app/settings/attendance', 'fees' => '/app/settings/fees', 'mail' => '/app/settings/mail', 'appearance' => '/app/settings/appearance', 'languages' => '/app/settings/languages', 'smsgateway' => '/app/sms/settings'] as $form => $path) {
@@ -197,6 +212,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('settings', 'settings')->name('admissions.settings');
         Route::post('settings', 'saveSettings')->name('admissions.settings.save');
         Route::put('{id}', 'decide')->whereNumber('id')->name('admissions.decide');
+    });
+
+    Route::controller(\App\Http\Controllers\WebsiteMessagesController::class)->prefix('app/website/messages')->group(function () {
+        Route::get('/', 'index')->name('website.messages');
+        Route::put('{id}', 'update')->whereNumber('id')->name('website.messages.update');
+        Route::delete('{id}', 'destroy')->whereNumber('id')->name('website.messages.destroy');
     });
 
     Route::prefix('app/website')->controller(\App\Http\Controllers\WebsiteController::class)->group(function () {

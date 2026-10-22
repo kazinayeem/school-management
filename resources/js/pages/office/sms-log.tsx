@@ -2,7 +2,7 @@ import { Badge, Nav, OfficePage, Table } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
 import { router } from '@inertiajs/react';
 
-type Row = { id: number; phone: string; recipient: string | null; message: string; status: string; created_at: string };
+type Row = { id: number; phone: string; recipient: string | null; message: string; status: string; created_at: string; detail: string | null };
 const tone = { queued: 'amber', sent: 'green', failed: 'red' } as const;
 const label = { queued: 'Queued', sent: 'Sent', failed: 'Failed' } as const;
 
@@ -12,12 +12,14 @@ export default function SmsLog({
     rows,
     counts,
     filters,
+    gateway,
 }: {
     navigation: Nav;
     roleLabel: string;
     rows: Row[];
     counts: Record<string, number>;
     filters: { status: string };
+    gateway: { enabled: boolean; provider: string };
 }) {
     const { t } = useI18n();
 
@@ -35,6 +37,21 @@ export default function SmsLog({
                     </button>
                 ))}
             </div>
+            <div className="flex flex-wrap items-center gap-3">
+                <p className="text-sm text-slate-600">
+                    {gateway.enabled
+                        ? t('Delivering through {provider}.', { provider: gateway.provider })
+                        : t('No provider is on, so messages stay queued until you mark them.')}
+                </p>
+                {gateway.enabled && (counts.queued ?? 0) > 0 && (
+                    <button
+                        onClick={() => router.post('/app/sms/log/deliver', {}, { preserveScroll: true })}
+                        className="ms-auto rounded-lg bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-800"
+                    >
+                        {t('Deliver queued messages')}
+                    </button>
+                )}
+            </div>
             <Table headers={['Date', 'To', 'Phone', 'Message', 'Status', '']} empty={rows.length === 0 ? 'No messages yet.' : null}>
                 {rows.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50">
@@ -48,6 +65,7 @@ export default function SmsLog({
                             <Badge tone={tone[r.status as keyof typeof tone] ?? 'slate'}>
                                 {t(label[r.status as keyof typeof label] ?? r.status)}
                             </Badge>
+                            {r.detail && <div className="mt-1 max-w-[220px] text-xs text-red-600">{r.detail}</div>}
                         </td>
                         <td className="space-x-2 px-4 py-3 text-end whitespace-nowrap">
                             {r.status === 'queued' && (

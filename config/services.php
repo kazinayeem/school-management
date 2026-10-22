@@ -35,4 +35,16 @@ return [
         ],
     ],
 
+    'bulksmsbd' => [
+        'key' => env('BULKSMSBD_API_KEY'),
+        'sender_id' => env('BULKSMSBD_SENDER_ID'),
+        'url' => env('BULKSMSBD_URL', 'http://bulksmsbd.net/api/smsapi'),
+    ],
+
+    'twilio' => [
+        'sid' => env('TWILIO_SID'),
+        'token' => env('TWILIO_TOKEN'),
+        'from' => env('TWILIO_FROM'),
+    ],
+
 ];

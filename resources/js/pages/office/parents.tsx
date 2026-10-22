@@ -43,10 +43,22 @@ function ParentForm({ parent, onDone }: { parent: Parent | null; onDone: () => v
                         <input className={inputCls} value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
                     </Field>
                     <Field label={parent ? 'New password (leave empty to keep)' : 'Password'} error={form.errors.password}>
-                        <input type="password" autoComplete="new-password" className={inputCls} value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
+                        <input
+                            type="password"
+                            autoComplete="new-password"
+                            className={inputCls}
+                            value={form.data.password}
+                            onChange={(e) => form.setData('password', e.target.value)}
+                        />
                     </Field>
                     <Field label="Children's admission numbers" error={form.errors.children}>
-                        <input className={inputCls} dir="ltr" value={form.data.children} onChange={(e) => form.setData('children', e.target.value)} placeholder="2026-00001, 2026-00002" />
+                        <input
+                            className={inputCls}
+                            dir="ltr"
+                            value={form.data.children}
+                            onChange={(e) => form.setData('children', e.target.value)}
+                            placeholder="2026-00001, 2026-00002"
+                        />
                     </Field>
                 </div>
                 <div className="flex gap-3">
@@ -68,7 +80,13 @@ export default function Parents({ navigation, roleLabel, rows, search }: { navig
     const [q, setQ] = useState(search);
 
     return (
-        <OfficePage navigation={navigation} roleLabel={roleLabel} title="Parent Accounts" subtitle="Parents who can sign in to follow their children's progress." wide>
+        <OfficePage
+            navigation={navigation}
+            roleLabel={roleLabel}
+            title="Parent Accounts"
+            subtitle="Parents who can sign in to follow their children's progress."
+            wide
+        >
             <div className="flex flex-wrap items-end gap-4">
                 <form
                     onSubmit={(e) => {
@@ -76,13 +94,24 @@ export default function Parents({ navigation, roleLabel, rows, search }: { navig
                         router.get('/app/system/parents', { search: q }, { preserveState: true, replace: true });
                     }}
                 >
-                    <input className={`${inputCls} w-72`} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search name, username or phone')} />
+                    <input
+                        className={`${inputCls} w-72`}
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder={t('Search name, username or phone')}
+                    />
                 </form>
                 <button onClick={() => setEditing('new')} className={`${primaryBtn} ms-auto`}>
                     {t('New parent account')}
                 </button>
             </div>
-            {editing && <ParentForm key={editing === 'new' ? 'new' : editing.id} parent={editing === 'new' ? null : editing} onDone={() => setEditing(null)} />}
+            {editing && (
+                <ParentForm
+                    key={editing === 'new' ? 'new' : editing.id}
+                    parent={editing === 'new' ? null : editing}
+                    onDone={() => setEditing(null)}
+                />
+            )}
 
             <Table headers={['Name', 'Username', 'Phone', 'Children', 'Status', '']} empty={rows.length === 0 ? 'No parent accounts found.' : null}>
                 {rows.map((p) => (
@@ -98,7 +127,10 @@ export default function Parents({ navigation, roleLabel, rows, search }: { navig
                             ) : (
                                 p.children.map((c) => (
                                     <div key={c.id}>
-                                        {c.name} <span className="text-xs text-slate-400">{[c.class_name ? t(c.class_name) : '', c.section].filter(Boolean).join(' ')}</span>
+                                        {c.name}{' '}
+                                        <span className="text-xs text-slate-400">
+                                            {[c.class_name ? t(c.class_name) : '', c.section].filter(Boolean).join(' ')}
+                                        </span>
                                     </div>
                                 ))
                             )}
@@ -110,7 +142,11 @@ export default function Parents({ navigation, roleLabel, rows, search }: { navig
                             <button aria-label={t('Edit')} onClick={() => setEditing(p)} className="text-slate-500 hover:text-fuchsia-700">
                                 <Pencil className="inline h-4 w-4" />
                             </button>
-                            <button aria-label={p.is_active ? t('Deactivate') : t('Activate')} onClick={() => router.put(`/app/system/users/${p.id}/status`, {}, { preserveScroll: true })} className="text-slate-500 hover:text-amber-600">
+                            <button
+                                aria-label={p.is_active ? t('Deactivate') : t('Activate')}
+                                onClick={() => router.put(`/app/system/users/${p.id}/status`, {}, { preserveScroll: true })}
+                                className="text-slate-500 hover:text-amber-600"
+                            >
                                 <Power className="inline h-4 w-4" />
                             </button>
                         </td>

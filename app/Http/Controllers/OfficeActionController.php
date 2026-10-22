@@ -47,6 +47,8 @@ class OfficeActionController extends Controller
 
         abort_unless($request->user()->role === 'admin' || $data['section'] === 'Class 8-A', 403);
 
+        $before = DB::table('attendance_days')->where('date', $data['date'])->whereIn('user_id', collect($data['marks'])->pluck('user_id'))->pluck('status', 'user_id');
+
         foreach ($data['marks'] as $mark) {
             DB::table('attendance_days')->updateOrInsert(
                 ['user_id' => $mark['user_id'], 'date' => $data['date']],
@@ -54,7 +56,26 @@ class OfficeActionController extends Controller
             );
         }
 
+        $this->alertGuardians($request, $data['date'], collect($data['marks'])->filter(fn ($m) => $m['status'] === 'absent' && ($before[$m['user_id']] ?? null) !== 'absent')->pluck('user_id')->all());
+
         return redirect('/app/attendance?section='.urlencode($data['section']).'&date='.$data['date']);
+    }
+
+    /** Text the guardians of newly absent students, when Settings → Attendance Rules says to. */
+    private function alertGuardians(Request $request, string $date, array $studentIds): void
+    {
+        if ($studentIds === [] || \App\Support\SiteSettings::get('attendance_notify_absent', '0') !== '1') {
+            return;
+        }
+
+        $students = DB::table('users')->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')->whereIn('users.id', $studentIds)
+            ->get(['users.name', 'student_profiles.guardian_name', 'student_profiles.guardian_mobile', 'student_profiles.class_name', 'student_profiles.section']);
+
+        foreach ($students as $s) {
+            if (filled($s->guardian_mobile)) {
+                \App\Support\SmsGateway::queue($s->guardian_mobile, $s->guardian_name, 'Dear '.($s->guardian_name ?: 'Guardian').", {$s->name} (".trim($s->class_name.' '.$s->section).") was absent on {$date}.", $request->user()->id);
+            }
+        }
     }
 
     public function storeHomework(Request $request): RedirectResponse

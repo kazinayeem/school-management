@@ -17,7 +17,9 @@ export default function SmsSend({
     enabled: boolean;
 }) {
     const { t } = useI18n();
-    const result = (usePage().props as { flash?: Record<string, any> }).flash?.sms as { queued: number; skipped: number } | undefined;
+    const result = (usePage().props as { flash?: Record<string, any> }).flash?.sms as
+        | { queued: number; skipped: number; sent?: number; failed?: number }
+        | undefined;
     const form = useForm({ audience: 'guardians', class_name: classes[0] ?? '', section: '', number: '', message: '' });
 
     const submit = (e: FormEvent) => {
@@ -40,6 +42,8 @@ export default function SmsSend({
             {result && (
                 <p role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
                     {t('{queued} messages queued, {skipped} skipped (no phone number).', result)}
+                    {(result.sent ?? 0) + (result.failed ?? 0) > 0 &&
+                        ` ${t('{sent} sent, {failed} failed.', { sent: result.sent ?? 0, failed: result.failed ?? 0 })}`}
                 </p>
             )}
             <form onSubmit={submit}>

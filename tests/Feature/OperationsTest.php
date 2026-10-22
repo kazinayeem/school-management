@@ -206,7 +206,7 @@ class OperationsTest extends TestCase
         $s = $this->student();
         $this->staff();
 
-        $this->post('/app/sms', ['audience' => 'guardians', 'class_name' => 'Class 6', 'message' => 'Hi {guardian}, {student} in {class}'])->assertSessionHas('sms', ['queued' => 1, 'skipped' => 0]);
+        $this->post('/app/sms', ['audience' => 'guardians', 'class_name' => 'Class 6', 'message' => 'Hi {guardian}, {student} in {class}'])->assertSessionHas('sms', ['queued' => 1, 'skipped' => 0, 'sent' => 0, 'failed' => 0]);
         $this->assertSame("Hi Parent, {$s->name} in Class 6 A", DB::table('sms_logs')->value('message'));
 
         $this->post('/app/sms', ['audience' => 'staff', 'message' => 'Meeting at 3'])->assertSessionHas('sms');

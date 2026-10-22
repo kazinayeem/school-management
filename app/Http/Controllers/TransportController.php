@@ -250,8 +250,9 @@ class TransportController extends Controller
         ]);
         $data['route_id'] = (int) $data['route_id'];
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
-        $data['pickup_time'] = $data['pickup_time'] ?: null;
-        $data['drop_time'] = $data['drop_time'] ?: null;
+        $data['landmark'] = ($data['landmark'] ?? null) ?: null;
+        $data['pickup_time'] = ($data['pickup_time'] ?? null) ?: null;
+        $data['drop_time'] = ($data['drop_time'] ?? null) ?: null;
 
         return $data;
     }

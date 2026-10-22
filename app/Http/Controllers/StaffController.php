@@ -138,6 +138,9 @@ class StaffController extends Controller
             'address' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
         ]);
+        foreach (['username', 'email', 'phone', 'password', 'designation', 'department', 'joined_on', 'address'] as $optional) {
+            $data[$optional] ??= null;
+        }
         $data['is_active'] = (bool) ($data['is_active'] ?? true);
 
         return $data;

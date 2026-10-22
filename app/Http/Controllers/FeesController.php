@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Audit;
 use App\Support\FeePayments;
+use App\Support\SmsGateway;
 use App\Support\OfficeMenu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -225,6 +227,202 @@ class FeesController extends Controller
         DB::table('online_transactions')->where('id', $id)->update(['status' => $data['status'], 'updated_at' => now()]);
 
         return back()->with('status', 'Transaction updated.');
+    }
+
+    // ---- due list
+
+    public function dues(Request $request): Response
+    {
+        $this->admin($request);
+        $f = $this->dueFilters($request);
+        $rows = $this->dueRows($f);
+
+        $overdue = $rows->where('days', '>', 0);
+
+        return Inertia::render('office/report', [
+            ...$this->shared(),
+            'title' => 'Due List',
+            'subtitle' => 'Invoices that still have a balance, with any late fee that would be added today.',
+            'filters' => [
+                ['name' => 'class', 'label' => 'Class', 'type' => 'select', 'options' => [['value' => '', 'label' => 'All classes'], ...array_map(fn ($c) => ['value' => $c, 'label' => $c], $this->classes())]],
+                ['name' => 'section', 'label' => 'Section', 'type' => 'select', 'options' => [['value' => '', 'label' => 'All sections'], ['value' => 'A', 'label' => 'A'], ['value' => 'B', 'label' => 'B']]],
+                ['name' => 'overdue', 'label' => 'Show', 'type' => 'select', 'options' => [['value' => '', 'label' => 'All dues'], ['value' => '1', 'label' => 'Overdue only']]],
+                ['name' => 'search', 'label' => 'Search', 'type' => 'text'],
+            ],
+            'values' => $f,
+            'sections' => [[
+                'title' => null,
+                'columns' => [
+                    ['key' => 'student', 'label' => 'Student'], ['key' => 'class', 'label' => 'Class'], ['key' => 'invoice_no', 'label' => 'Invoice'], ['key' => 'label', 'label' => 'Fee'],
+                    ['key' => 'due_on', 'label' => 'Due date'], ['key' => 'days', 'label' => 'Days overdue', 'num' => true], ['key' => 'balance', 'label' => 'Balance', 'money' => true],
+                    ['key' => 'late', 'label' => 'Late fee', 'money' => true], ['key' => 'total', 'label' => 'Pay now', 'money' => true],
+                ],
+                'rows' => $rows->map(fn ($r) => array_merge($r, ['days' => max(0, $r['days'])]))->values()->all(),
+                'footer' => ['student' => 'Total', 'balance' => (int) $rows->sum('balance'), 'late' => (int) $rows->sum('late'), 'total' => (int) $rows->sum('total')],
+            ]],
+            'summary' => [
+                ['label' => 'Students with dues', 'value' => $rows->pluck('user_id')->unique()->count()],
+                ['label' => 'Outstanding balance', 'value' => (int) $rows->sum('balance')],
+                ['label' => 'Overdue balance', 'value' => (int) $overdue->sum('balance')],
+                ['label' => 'Late fees to be added', 'value' => (int) $rows->sum('late')],
+            ],
+            'actions' => $rows->isEmpty() ? [] : [['label' => 'Text a reminder to these guardians', 'url' => '/app/fees/dues/remind', 'data' => $f, 'confirm' => 'Queue a fee reminder for every guardian in this list?']],
+        ]);
+    }
+
+    public function remindDues(Request $request): RedirectResponse
+    {
+        $this->admin($request);
+        $rows = $this->dueRows($this->dueFilters($request, $request->input()))->groupBy('user_id');
+
+        $body = DB::table('sms_templates')->where('name', 'Fee due reminder')->where('active', true)->value('body')
+            ?? 'Dear {guardian}, the fee for {student} ({class}) is due. Please pay at the school office.';
+
+        $queued = $skipped = 0;
+        foreach ($rows as $userId => $invoices) {
+            $first = $invoices->first();
+            $phone = DB::table('student_profiles')->where('user_id', $userId)->value('guardian_mobile');
+            $message = strtr($body, ['{guardian}' => $first['guardian'] ?: 'Guardian', '{student}' => $first['student'], '{class}' => $first['class']]).' Amount due: '.number_format((int) $invoices->sum('total')).'.';
+
+            $already = $phone && DB::table('sms_logs')->where('phone', $phone)->where('message', $message)->whereDate('created_at', today())->exists();
+            if (blank($phone) || $already) {
+                $skipped++;
+
+                continue;
+            }
+            SmsGateway::queue($phone, $first['guardian'], $message, $request->user()->id);
+            $queued++;
+        }
+        Audit::log('other', 'Fee reminders', "{$queued} queued, {$skipped} skipped");
+
+        return back()->with('status', 'Reminders queued.');
+    }
+
+    /** @return array{class: string, section: string, overdue: string, search: string} */
+    private function dueFilters(Request $request, ?array $source = null): array
+    {
+        $in = $source ?? $request->query();
+
+        return [
+            'class' => in_array($in['class'] ?? '', $this->classes(), true) ? (string) $in['class'] : '',
+            'section' => in_array($in['section'] ?? '', ['A', 'B'], true) ? (string) $in['section'] : '',
+            'overdue' => ($in['overdue'] ?? '') === '1' ? '1' : '',
+            'search' => trim((string) ($in['search'] ?? '')),
+        ];
+    }
+
+    /** @return \Illuminate\Support\Collection<int, array<string, mixed>> */
+    private function dueRows(array $f): \Illuminate\Support\Collection
+    {
+        return DB::table('fee_invoices')->join('users', 'users.id', '=', 'fee_invoices.user_id')->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')
+            ->whereColumn('fee_invoices.payable', '>', 'fee_invoices.paid')->where('student_profiles.status', 'active')
+            ->when($f['class'] !== '', fn ($q) => $q->where('student_profiles.class_name', $f['class']))
+            ->when($f['section'] !== '', fn ($q) => $q->where('student_profiles.section', $f['section']))
+            ->when($f['overdue'] === '1', fn ($q) => $q->where('fee_invoices.due_on', '<', today()->toDateString()))
+            ->when($f['search'] !== '', fn ($q) => $q->where(fn ($q) => $q->where('users.name', 'like', "%{$f['search']}%")->orWhere('student_profiles.admission_no', 'like', "%{$f['search']}%")->orWhere('fee_invoices.invoice_no', 'like', "%{$f['search']}%")))
+            ->orderBy('fee_invoices.due_on')->orderBy('users.name')->limit(500)
+            ->get(['fee_invoices.*', 'users.name as student', 'student_profiles.class_name', 'student_profiles.section', 'student_profiles.guardian_name'])
+            ->map(function ($r) {
+                $balance = (int) $r->payable - (int) $r->paid;
+                $late = FeePayments::lateFee($r);
+
+                return [
+                    'user_id' => (int) $r->user_id, 'student' => $r->student, 'guardian' => $r->guardian_name, 'class' => trim($r->class_name.' '.$r->section), 'invoice_no' => $r->invoice_no, 'label' => $r->label,
+                    'due_on' => $r->due_on, 'days' => $r->due_on ? (int) \Illuminate\Support\Carbon::parse($r->due_on)->startOfDay()->diffInDays(today(), false) : 0,
+                    'balance' => $balance, 'late' => $late, 'total' => $balance + $late,
+                ];
+            });
+    }
+
+    // ---- collection report
+
+    public function payments(Request $request): Response
+    {
+        $this->admin($request);
+        $f = $this->paymentFilters($request);
+        $rows = $this->paymentRows($f);
+        $byMethod = $rows->groupBy('method')->map(fn ($g, $m) => ['method' => $m, 'receipts' => $g->count(), 'amount' => (int) $g->sum('amount')])->sortByDesc('amount')->values();
+
+        $methods = DB::table('fee_payments')->distinct()->orderBy('method')->pluck('method')->all();
+        $query = http_build_query(array_filter($f));
+
+        return Inertia::render('office/report', [
+            ...$this->shared(),
+            'title' => 'Collection Report',
+            'subtitle' => 'Fees collected in a period, by payment method.',
+            'filters' => [
+                ['name' => 'from', 'label' => 'From', 'type' => 'date', 'with' => ['name' => 'to', 'label' => 'To', 'type' => 'date']],
+                ['name' => 'method', 'label' => 'Method', 'type' => 'select', 'options' => [['value' => '', 'label' => 'All methods'], ...array_map(fn ($m) => ['value' => $m, 'label' => $m], $methods)]],
+                ['name' => 'class', 'label' => 'Class', 'type' => 'select', 'options' => [['value' => '', 'label' => 'All classes'], ...array_map(fn ($c) => ['value' => $c, 'label' => $c], $this->classes())]],
+            ],
+            'values' => $f,
+            'sections' => [
+                [
+                    'title' => 'Payments',
+                    'columns' => [
+                        ['key' => 'paid_on', 'label' => 'Date'], ['key' => 'receipt_no', 'label' => 'Receipt'], ['key' => 'student', 'label' => 'Student'], ['key' => 'class', 'label' => 'Class'],
+                        ['key' => 'method', 'label' => 'Method'], ['key' => 'late_fee', 'label' => 'Late fee', 'money' => true], ['key' => 'amount', 'label' => 'Amount', 'money' => true],
+                    ],
+                    'rows' => $rows->all(),
+                    'footer' => ['student' => 'Total', 'late_fee' => (int) $rows->sum('late_fee'), 'amount' => (int) $rows->sum('amount')],
+                ],
+                [
+                    'title' => 'By method',
+                    'columns' => [['key' => 'method', 'label' => 'Method'], ['key' => 'receipts', 'label' => 'Receipts', 'num' => true], ['key' => 'amount', 'label' => 'Amount', 'money' => true]],
+                    'rows' => $byMethod->all(),
+                ],
+            ],
+            'summary' => [
+                ['label' => 'Collected', 'value' => (int) $rows->sum('amount')],
+                ['label' => 'Receipts', 'value' => $rows->count()],
+                ['label' => 'Late fees included', 'value' => (int) $rows->sum('late_fee')],
+                ['label' => 'Average receipt', 'value' => $rows->isEmpty() ? 0 : (int) round($rows->avg('amount'))],
+            ],
+            'actions' => [['label' => 'Download CSV', 'href' => '/app/fees/payments/export'.($query ? '?'.$query : '')]],
+        ]);
+    }
+
+    public function exportPayments(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->admin($request);
+        $rows = $this->paymentRows($this->paymentFilters($request));
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Date', 'Receipt', 'Student', 'Class', 'Method', 'Late fee', 'Amount']);
+            foreach ($rows as $r) {
+                fputcsv($out, [$r['paid_on'], $r['receipt_no'], $r['student'], $r['class'], $r['method'], $r['late_fee'], $r['amount']]);
+            }
+            fclose($out);
+        }, 'collection-report.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /** @return array{from: string, to: string, method: string, class: string} */
+    private function paymentFilters(Request $request): array
+    {
+        $date = fn ($v, $d) => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) && strtotime($v) ? $v : $d;
+        $from = $date($request->query('from'), today()->startOfMonth()->toDateString());
+        $to = $date($request->query('to'), today()->toDateString());
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return [
+            'from' => $from, 'to' => $to, 'method' => trim((string) $request->query('method', '')),
+            'class' => in_array($request->query('class'), $this->classes(), true) ? (string) $request->query('class') : '',
+        ];
+    }
+
+    /** @return \Illuminate\Support\Collection<int, array<string, mixed>> */
+    private function paymentRows(array $f): \Illuminate\Support\Collection
+    {
+        return DB::table('fee_payments')->join('users', 'users.id', '=', 'fee_payments.user_id')->leftJoin('student_profiles', 'student_profiles.user_id', '=', 'users.id')
+            ->whereBetween('fee_payments.paid_on', [$f['from'], $f['to']])
+            ->when($f['method'] !== '', fn ($q) => $q->where('fee_payments.method', $f['method']))
+            ->when($f['class'] !== '', fn ($q) => $q->where('student_profiles.class_name', $f['class']))
+            ->orderByDesc('fee_payments.paid_on')->orderByDesc('fee_payments.id')->limit(2000)
+            ->get(['fee_payments.paid_on', 'fee_payments.receipt_no', 'fee_payments.method', 'fee_payments.amount', 'fee_payments.late_fee', 'users.name as student', 'student_profiles.class_name', 'student_profiles.section'])
+            ->map(fn ($r) => ['paid_on' => $r->paid_on, 'receipt_no' => $r->receipt_no, 'student' => $r->student, 'class' => trim(($r->class_name ?? '').' '.($r->section ?? '')), 'method' => $r->method, 'late_fee' => (int) $r->late_fee, 'amount' => (int) $r->amount]);
     }
 
     /** @return list<string> */

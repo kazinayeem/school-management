@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\Audit;
 use App\Support\OfficeMenu;
+use App\Support\SmsGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class SmsController extends Controller
             ...$this->shared(),
             'templates' => DB::table('sms_templates')->where('active', true)->orderBy('name')->get(['id', 'name', 'body']),
             'classes' => DB::table('academic_classes')->orderBy('sort_order')->pluck('name'),
-            'enabled' => \App\Support\SiteSettings::get('sms_enabled', '0') === '1',
+            'enabled' => SmsGateway::enabled(),
         ]);
     }
 
@@ -57,13 +58,19 @@ class SmsController extends Controller
             return back()->withErrors(['audience' => 'Send to at most '.self::MAX_RECIPIENTS.' people at a time.']);
         }
 
-        DB::table('sms_logs')->insert($withPhone->map(fn ($r) => [
-            'phone' => $r['phone'], 'recipient' => $r['name'], 'message' => mb_substr(strtr($data['message'], $r['vars']), 0, 500),
-            'status' => 'queued', 'sent_by' => $request->user()->id, 'created_at' => now(), 'updated_at' => now(),
-        ])->all());
-        Audit::log('other', 'SMS', "Queued {$withPhone->count()} messages");
+        $ids = [];
+        foreach ($withPhone as $r) {
+            $ids[] = DB::table('sms_logs')->insertGetId([
+                'phone' => $r['phone'], 'recipient' => $r['name'], 'message' => mb_substr(strtr($data['message'], $r['vars']), 0, 500),
+                'status' => 'queued', 'sent_by' => $request->user()->id, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
 
-        return back()->with('sms', ['queued' => $withPhone->count(), 'skipped' => $skipped]);
+        // With a gateway on, the first batch goes out now; the rest wait for "Deliver queued" in the log.
+        $delivery = SmsGateway::deliver($ids, SmsGateway::BATCH);
+        Audit::log('other', 'SMS', "Queued {$withPhone->count()} messages, {$delivery['sent']} sent");
+
+        return back()->with('sms', ['queued' => $withPhone->count() - $delivery['sent'] - $delivery['failed'], 'skipped' => $skipped, 'sent' => $delivery['sent'], 'failed' => $delivery['failed']]);
     }
 
     public function log(Request $request): Response
@@ -76,7 +83,21 @@ class SmsController extends Controller
             'rows' => DB::table('sms_logs')->when(in_array($status, ['queued', 'sent', 'failed'], true), fn ($q) => $q->where('status', $status))->orderByDesc('id')->limit(300)->get(),
             'counts' => DB::table('sms_logs')->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
             'filters' => ['status' => $status],
+            'gateway' => ['enabled' => SmsGateway::enabled(), 'provider' => \App\Support\SiteSettings::get('sms_provider', 'manual')],
         ]);
+    }
+
+    public function deliverQueued(Request $request): RedirectResponse
+    {
+        $this->admin($request);
+        if (! SmsGateway::enabled()) {
+            return back()->with('error', 'Turn on an SMS provider under Settings first.');
+        }
+
+        $result = SmsGateway::deliver(null, SmsGateway::BATCH);
+        Audit::log('other', 'SMS', "Delivered queued: {$result['sent']} sent, {$result['failed']} failed");
+
+        return back()->with('status', 'Delivery finished.');
     }
 
     public function mark(Request $request, int $id): RedirectResponse

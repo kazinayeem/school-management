@@ -1,11 +1,12 @@
-import { Card, ghostBtn, inputCls, money, Nav, OfficePage } from '@/components/office-ui';
+import { Card, ghostBtn, inputCls, money, Nav, OfficePage, primaryBtn } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
 import { router } from '@inertiajs/react';
 import { Printer, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 type Filter = { name: string; label: string; type: 'date' | 'select' | 'text'; options?: { value: string; label: string }[]; with?: Filter };
-type Column = { key: string; label: string; money?: boolean };
+type Column = { key: string; label: string; money?: boolean; num?: boolean };
+type Action = { label: string; url?: string; href?: string; data?: Record<string, string>; confirm?: string };
 type Section = { title: string | null; columns: Column[]; rows: Record<string, any>[]; footer?: Record<string, any> };
 
 export default function Report({
@@ -18,6 +19,7 @@ export default function Report({
     sections,
     summary,
     notes = [],
+    actions = [],
 }: {
     navigation: Nav;
     roleLabel: string;
@@ -28,6 +30,7 @@ export default function Report({
     sections: Section[];
     summary: { label: string; value: number }[];
     notes?: string[];
+    actions?: Action[];
 }) {
     const { t } = useI18n();
     const [state, setState] = useState<Record<string, string>>(values);
@@ -67,6 +70,23 @@ export default function Report({
                         )}
                     </div>
                 ))}
+                {actions.map((a) =>
+                    a.href ? (
+                        <a key={a.label} href={a.href} className={ghostBtn}>
+                            {t(a.label)}
+                        </a>
+                    ) : (
+                        <button
+                            key={a.label}
+                            onClick={() =>
+                                (!a.confirm || confirm(t(a.confirm, a.data ?? {}))) && router.post(a.url!, a.data ?? {}, { preserveScroll: true })
+                            }
+                            className={primaryBtn}
+                        >
+                            {t(a.label)}
+                        </button>
+                    ),
+                )}
                 <button onClick={() => window.print()} className={`${ghostBtn} ms-auto flex items-center gap-1`}>
                     <Printer className="h-4 w-4" /> {t('Print')}
                 </button>
@@ -102,7 +122,7 @@ export default function Report({
                                 <thead className="bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
                                     <tr>
                                         {section.columns.map((c) => (
-                                            <th key={c.key} className={`px-4 py-3 font-semibold ${c.money ? 'text-end' : 'text-start'}`}>
+                                            <th key={c.key} className={`px-4 py-3 font-semibold ${c.money || c.num ? 'text-end' : 'text-start'}`}>
                                                 {t(c.label)}
                                             </th>
                                         ))}
@@ -113,8 +133,15 @@ export default function Report({
                                     {section.rows.map((row, i) => (
                                         <tr key={i} className="hover:bg-slate-50">
                                             {section.columns.map((c) => (
-                                                <td key={c.key} className={`px-4 py-3 ${c.money ? 'text-end tabular-nums' : ''}`}>
-                                                    {c.money ? money(row[c.key]) : c.key === 'type' ? t(String(row[c.key])) : row[c.key]}
+                                                <td
+                                                    key={c.key}
+                                                    className={`px-4 py-3 ${c.money || c.num ? 'text-end tabular-nums' : ''} ${c.key === 'flag' && row[c.key] ? 'font-medium text-red-600' : ''}`}
+                                                >
+                                                    {c.money
+                                                        ? money(row[c.key])
+                                                        : c.key === 'type' || c.key === 'flag'
+                                                          ? t(String(row[c.key] ?? ''))
+                                                          : row[c.key]}
                                                 </td>
                                             ))}
                                             {row.delete_url && (

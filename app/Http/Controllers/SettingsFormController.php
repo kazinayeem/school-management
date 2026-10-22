@@ -75,6 +75,7 @@ class SettingsFormController extends Controller
                 'path' => '/app/settings/mail',
                 'label' => 'Email / SMTP',
                 'subtitle' => 'Outgoing email details. The SMTP password belongs in the server .env file.',
+                'test' => ['url' => '/app/settings/mail/test', 'label' => 'Send a test email'],
                 'fields' => [
                     ['name' => 'mail_host', 'label' => 'SMTP host', 'type' => 'text', 'rules' => 'nullable|string|max:150', 'default' => ''],
                     ['name' => 'mail_port', 'label' => 'Port', 'type' => 'number', 'rules' => 'nullable|integer|min:1|max:65535', 'default' => '587'],
@@ -133,7 +134,7 @@ class SettingsFormController extends Controller
             'roleLabel' => 'Super Admin',
             'resource' => 'settings',
             'baseUrl' => $config['path'],
-            'definition' => ['label' => $config['label'], 'subtitle' => $config['subtitle'], 'fields' => $config['fields']],
+            'definition' => ['label' => $config['label'], 'subtitle' => $config['subtitle'], 'fields' => $config['fields'], 'test' => $config['test'] ?? null],
             'values' => $values,
         ]);
     }
@@ -161,5 +162,24 @@ class SettingsFormController extends Controller
         \App\Support\Audit::log('updated', $this->forms()[$form]['label'].' settings');
 
         return back()->with('status', 'Settings saved.');
+    }
+
+    public function testMail(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+        $data = $request->validate(['email' => ['required', 'email', 'max:150']]);
+
+        if (blank(\App\Support\SiteSettings::get('mail_host'))) {
+            return back()->with('error', 'Save an SMTP host first. Until then email is only written to the log.');
+        }
+
+        try {
+            \Illuminate\Support\Facades\Mail::raw('This is a test email from '.(\App\Support\SiteSettings::get('school_name') ?: config('app.name')).'. Your email settings work.', fn ($m) => $m->to($data['email'])->subject('Test email'));
+        } catch (\Throwable $e) {
+            return back()->with('error', 'The test email could not be sent: '.mb_substr($e->getMessage(), 0, 200));
+        }
+        \App\Support\Audit::log('other', 'Email settings', 'Test email sent');
+
+        return back()->with('status', 'Test email sent.');
     }
 }

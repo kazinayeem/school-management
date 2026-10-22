@@ -19,7 +19,13 @@ function PasswordForm({ user, onDone }: { user: Row; onDone: () => void }) {
         >
             <Card className="flex flex-wrap items-end gap-4 border-amber-200">
                 <Field label={t('New password for {name}', { name: user.name })} error={form.errors.password}>
-                    <input type="password" autoComplete="new-password" className={inputCls} value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
+                    <input
+                        type="password"
+                        autoComplete="new-password"
+                        className={inputCls}
+                        value={form.data.password}
+                        onChange={(e) => form.setData('password', e.target.value)}
+                    />
                 </Field>
                 <button disabled={form.processing} className={primaryBtn}>
                     {t('Change password')}
@@ -57,7 +63,13 @@ function AdminForm({ onDone }: { onDone: () => void }) {
                         <input className={inputCls} value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
                     </Field>
                     <Field label="Password" error={form.errors.password}>
-                        <input type="password" autoComplete="new-password" className={inputCls} value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
+                        <input
+                            type="password"
+                            autoComplete="new-password"
+                            className={inputCls}
+                            value={form.data.password}
+                            onChange={(e) => form.setData('password', e.target.value)}
+                        />
                     </Field>
                 </div>
                 <div className="flex gap-3">
@@ -96,10 +108,20 @@ export default function Users({
     const roleName = (r: string) => t(r === 'admin' ? 'Admin' : r === 'staff' ? 'Staff' : r === 'student' ? 'Student' : 'Parent');
 
     return (
-        <OfficePage navigation={navigation} roleLabel={roleLabel} title="User Accounts" subtitle="Everyone who can sign in. Turn accounts off, reset passwords, add administrators." wide>
+        <OfficePage
+            navigation={navigation}
+            roleLabel={roleLabel}
+            title="User Accounts"
+            subtitle="Everyone who can sign in. Turn accounts off, reset passwords, add administrators."
+            wide
+        >
             <div className="grid gap-3 sm:grid-cols-4">
                 {(['admin', 'staff', 'student', 'parent'] as const).map((r) => (
-                    <button key={r} onClick={() => go({ role: filters.role === r ? '' : r })} className={`rounded-xl border bg-white p-4 text-start shadow-sm ${filters.role === r ? 'border-fuchsia-500' : 'border-slate-200'}`}>
+                    <button
+                        key={r}
+                        onClick={() => go({ role: filters.role === r ? '' : r })}
+                        className={`rounded-xl border bg-white p-4 text-start shadow-sm ${filters.role === r ? 'border-fuchsia-500' : 'border-slate-200'}`}
+                    >
                         <div className="text-2xl font-bold">{counts[r] ?? 0}</div>
                         <div className="text-xs text-slate-500">{roleName(r)}</div>
                     </button>
@@ -113,7 +135,12 @@ export default function Users({
                         go({ search: q });
                     }}
                 >
-                    <input className={`${inputCls} w-72`} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search name, username or email')} />
+                    <input
+                        className={`${inputCls} w-72`}
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder={t('Search name, username or email')}
+                    />
                 </form>
                 <select className={`${inputCls} w-44`} value={filters.status} onChange={(e) => go({ status: e.target.value })}>
                     <option value="">{t('All statuses')}</option>
@@ -139,11 +166,19 @@ export default function Users({
                             <Badge tone={u.is_active ? 'green' : 'slate'}>{u.is_active ? t('Active') : t('Inactive')}</Badge>
                         </td>
                         <td className="space-x-3 px-4 py-3 text-end whitespace-nowrap">
-                            <button aria-label={t('Reset password')} onClick={() => setResetting(u)} className="text-slate-500 hover:text-fuchsia-700">
+                            <button
+                                aria-label={t('Reset password')}
+                                onClick={() => setResetting(u)}
+                                className="text-slate-500 hover:text-fuchsia-700"
+                            >
                                 <KeyRound className="inline h-4 w-4" />
                             </button>
                             {u.id !== me && (
-                                <button aria-label={u.is_active ? t('Deactivate') : t('Activate')} onClick={() => router.put(`/app/system/users/${u.id}/status`, {}, { preserveScroll: true })} className="text-slate-500 hover:text-amber-600">
+                                <button
+                                    aria-label={u.is_active ? t('Deactivate') : t('Activate')}
+                                    onClick={() => router.put(`/app/system/users/${u.id}/status`, {}, { preserveScroll: true })}
+                                    className="text-slate-500 hover:text-amber-600"
+                                >
                                     <Power className="inline h-4 w-4" />
                                 </button>
                             )}

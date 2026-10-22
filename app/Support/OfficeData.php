@@ -459,6 +459,7 @@ class OfficeData
                 'number' => $row->invoice_no,
                 'payable' => (int) $row->payable,
                 'paid' => (int) $row->paid,
+                'lateFee' => FeePayments::lateFee($row),
                 'status' => $row->status,
             ])
             ->all();

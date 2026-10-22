@@ -9,9 +9,18 @@ class StudentProfile extends Model
 {
     protected $fillable = [
         'user_id',
+        'admission_no',
         'class_name',
         'section',
         'roll_no',
+        'gender',
+        'date_of_birth',
+        'shift',
+        'guardian_name',
+        'guardian_mobile',
+        'status',
+        'religion',
+        'address',
         'session',
         'attendance_present',
         'attendance_working',
@@ -29,6 +38,7 @@ class StudentProfile extends Model
     {
         return [
             'gpa' => 'float',
+            'date_of_birth' => 'date',
             'dues_due_date' => 'date',
         ];
     }

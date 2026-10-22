@@ -103,14 +103,22 @@ class PortalSeeder extends Seeder
         DB::table('school_notices')->delete();
         DB::table('school_notices')->insert([
             [
+                'title' => 'Admission for the upcoming academic session is open',
+                'body' => 'Online admission for the upcoming academic session is now open. Apply from the Admission page.',
+                'published_on' => '2026-07-28',
+                'expires_on' => '2026-10-26',
+            ],
+            [
                 'title' => 'Half yearly exam routine published',
                 'body' => 'Check My Calendar and My Results for the published exam window.',
                 'published_on' => now()->subDays(2)->toDateString(),
+                'expires_on' => now()->subDay()->toDateString(),
             ],
             [
                 'title' => 'Fee counter open until 4 PM',
                 'body' => 'Unpaid invoices can be cleared at the accounts office.',
                 'published_on' => now()->subDays(5)->toDateString(),
+                'expires_on' => now()->subDay()->toDateString(),
             ],
         ]);
     }

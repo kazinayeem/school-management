@@ -66,7 +66,7 @@ class RoleDashboardTest extends TestCase
 
         $this->actingAs(User::where('username', 'superadmin')->first())
             ->get('/app/students')
-            ->assertInertia(fn (Assert $page) => $page->component('office/module')->where('module.title', 'Student List'));
+            ->assertInertia(fn (Assert $page) => $page->component('office/module')->where('module.title', 'Students'));
 
         $this->actingAs(User::where('username', 'staff')->first())
             ->get('/app/fees')

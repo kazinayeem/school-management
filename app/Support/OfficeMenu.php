@@ -12,6 +12,10 @@ class OfficeMenu
 
     public static function allows(string $role, string $path): bool
     {
+        if (preg_match('#^/app/students/\d+$#', $path)) {
+            $path = '/app/students';
+        }
+
         foreach (self::flat($role) as $item) {
             if ($item['href'] === $path) {
                 return true;

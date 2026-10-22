@@ -21,9 +21,38 @@ export interface NavItem {
     isActive?: boolean;
 }
 
+export type BrandingRole = 'admin' | 'staff' | 'student' | 'parent';
+
+export interface DemoAccount {
+    username: string;
+    password: string;
+    email: string;
+    name: string;
+    role: string;
+}
+
+export interface Language {
+    code: string;
+    name: string;
+    flag: string;
+    is_rtl: boolean;
+    is_default: boolean;
+}
+
+export interface Branding {
+    name: string;
+    logo: string;
+    logoWhite: string;
+    favicon: string;
+    theme: { primary: string };
+    demo: Record<BrandingRole, DemoAccount>;
+    languages: Language[];
+}
+
 export interface SharedData {
     menu: { title: string; url: string; icon: string }[];
     name: string;
+    branding: Branding;
     quote: { message: string; author: string };
     auth: Auth;
     [key: string]: unknown;

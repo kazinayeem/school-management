@@ -7,8 +7,19 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-    --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-indigo-50: #fcf3f8;
+    --color-indigo-100: #f9e6f0;
+    --color-indigo-200: #fabcdd;
+    --color-indigo-300: #f788c2;
+    --color-indigo-400: #f45dad;
+    --color-indigo-500: #f2409e;
+    --color-indigo-600: #b80d68;
+    --color-indigo-700: #8d0a4f;
+    --color-indigo-800: #67073a;
+    --color-indigo-900: #460527;
+    --color-indigo-950: #290317;
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -77,6 +88,7 @@
 }
 
 :root {
+    --brand-hue-shift: 76.24deg;
     --background: hsl(0, 0%, 100%);
     --foreground: hsl(0, 0%, 3.9%);
     --card: hsl(0, 0%, 100%);
@@ -155,4 +167,37 @@
     body {
         @apply bg-background text-foreground;
     }
+}
+
+@keyframes shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    20%,
+    60% {
+        transform: translateX(-4px);
+    }
+    40%,
+    80% {
+        transform: translateX(4px);
+    }
+}
+
+@keyframes model-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.animate-shake {
+    animation: shake 0.35s ease-in-out;
+}
+
+.animate-model-float {
+    animation: model-float 6s ease-in-out infinite;
 }

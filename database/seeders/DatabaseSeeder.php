@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
     {
         $accounts = [
             ['superadmin', 'admin', 'Super Admin'],
+            ['jsmith', 'staff', 'John Smith'],
             ['staff', 'staff', 'John Smith'],
             ['student', 'student', 'Ethan Parker'],
             ['nusrat', 'student', 'Nusrat Jahan'],
@@ -28,5 +29,6 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(PortalSeeder::class);
+        $this->call(OfficeRosterSeeder::class);
     }
 }

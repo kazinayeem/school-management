@@ -32,7 +32,7 @@ class OfficeController extends Controller
 
         return Inertia::render('office/module', [
             ...$shared,
-            'module' => OfficeData::module($path),
+            'module' => OfficeData::module($path, $user, $request),
         ]);
     }
 }

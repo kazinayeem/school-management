@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\StudentProfile;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class OfficeData
@@ -21,10 +23,7 @@ class OfficeData
             $actions[] = ['label' => 'Collect fee', 'note' => 'Record a payment', 'href' => '/app/fees'];
         }
 
-        $classes = [];
-        foreach (range(1, 10) as $class) {
-            $classes[] = ['name' => "Class {$class}", 'percent' => 0];
-        }
+        $pulse = self::pulse();
 
         return [
             'firstName' => explode(' ', $user->name)[0],
@@ -32,20 +31,25 @@ class OfficeData
             'session' => '2026',
             'today' => now()->format('l, F j, Y'),
             'metrics' => [
-                ['label' => 'Active students', 'value' => '190', 'note' => 'Currently enrolled', 'tone' => 'indigo', 'href' => '/app/students'],
-                ['label' => 'Active staff', 'value' => '27', 'note' => 'Teachers and employees', 'tone' => 'emerald', 'href' => $admin ? '/app/staff' : '/app'],
-                ['label' => 'Attendance progress', 'value' => '0%', 'note' => '20 sections pending', 'tone' => 'sky', 'href' => '/app/attendance'],
-                ['label' => 'Unpaid invoices', 'value' => '104', 'note' => 'Unpaid or partially paid', 'tone' => 'amber', 'href' => $admin ? '/app/fees/dues' : '/app'],
+                ['label' => 'Active students', 'value' => (string) $pulse['students'], 'note' => 'Currently enrolled', 'tone' => 'indigo', 'href' => '/app/students'],
+                ['label' => 'Active staff', 'value' => (string) $pulse['staff'], 'note' => 'Teachers and employees', 'tone' => 'emerald', 'href' => $admin ? '/app/staff' : '/app'],
+                ['label' => 'Attendance progress', 'value' => $pulse['progress'].'%', 'note' => $pulse['pendingCount'].' sections pending', 'tone' => 'sky', 'href' => '/app/attendance'],
+                ['label' => 'Unpaid invoices', 'value' => (string) $pulse['unpaid'], 'note' => 'Unpaid or partially paid', 'tone' => 'amber', 'href' => $admin ? '/app/fees/dues' : '/app'],
             ],
             'snapshot' => array_values(array_filter([
                 ['label' => 'Overdue books', 'value' => '5', 'note' => 'Loans past their due date', 'href' => '/app/library/fines'],
                 $admin ? ['label' => 'Admission queue', 'value' => '3', 'note' => 'Applications awaiting review', 'href' => '/app/students/new'] : null,
             ])),
             'actions' => $actions,
-            'fees' => ['collected' => 'Tk 0', 'best' => 'Tk 0', 'empty' => true, 'href' => $admin ? '/app/fees/payments' : '/app'],
-            'classes' => $classes,
-            'pendingCount' => 20,
-            'pending' => ['Class 6-A', 'Class 6-B', 'Class 7-A', 'Class 7-B', 'Class 8-A'],
+            'fees' => [
+                'collected' => 'Tk '.number_format($pulse['collected']),
+                'best' => 'Tk '.number_format($pulse['best']),
+                'empty' => $pulse['collected'] === 0,
+                'href' => $admin ? '/app/fees/payments' : '/app',
+            ],
+            'classes' => $pulse['classes'],
+            'pendingCount' => $pulse['pendingCount'],
+            'pending' => array_slice($pulse['pending'], 0, 5),
             'activity' => [
                 ['actor' => 'Super Admin', 'action' => 'updated Setting', 'when' => '71 days ago'],
                 ['actor' => 'Super Admin', 'action' => 'updated Setting', 'when' => '71 days ago'],
@@ -53,18 +57,55 @@ class OfficeData
                 ['actor' => 'Super Admin', 'action' => 'published Notice', 'when' => '86 days ago'],
                 ['actor' => 'Super Admin', 'action' => 'enrolled Student', 'when' => '90 days ago'],
             ],
-            'notices' => [
-                ['title' => 'Admission for the upcoming academic session is open', 'meta' => 'Published 2026-07-28 · Expires 2026-10-26'],
-                ...collect(DB::table('school_notices')->orderByDesc('published_on')->limit(3)->get())->map(fn ($row) => [
+            'notices' => DB::table('school_notices')
+                ->where(function ($query) {
+                    $query->whereNull('expires_on')->orWhere('expires_on', '>=', now()->toDateString());
+                })
+                ->orderByDesc('published_on')
+                ->limit(3)
+                ->get()
+                ->map(fn ($row) => [
                     'title' => $row->title,
-                    'meta' => 'Published '.$row->published_on,
-                ])->all(),
-            ],
+                    'meta' => 'Published '.$row->published_on.($row->expires_on ? ' · Expires '.$row->expires_on : ''),
+                ])
+                ->all(),
         ];
     }
 
-    public static function module(string $path): array
+    public static function module(string $path, User $user, Request $request): array
     {
+        if (preg_match('#/students/(\d+)$#', $path, $matches)) {
+            return self::profile((int) $matches[1]);
+        }
+
+        if (str_ends_with($path, '/students/new')) {
+            return self::admission();
+        }
+
+        if ($path === '/app/students' || str_contains($path, '/students/')) {
+            return self::studentDirectory($request);
+        }
+
+        if ($path === '/app/attendance') {
+            return self::register($user, $request);
+        }
+
+        if ($path === '/app/notices') {
+            return self::noticeBoard($request);
+        }
+
+        if ($path === '/app/homework') {
+            return self::homeworkBoard($request);
+        }
+
+        if ($path === '/app/leave') {
+            return self::leaveBoard();
+        }
+
+        if (str_starts_with($path, '/app/fees')) {
+            return self::feeBoard();
+        }
+
         $title = OfficeMenu::find('admin', $path)['label']
             ?? OfficeMenu::find('staff', $path)['label']
             ?? 'Module';
@@ -89,6 +130,328 @@ class OfficeData
             'title' => $title,
             'subtitle' => $subtitle,
             'headers' => $headers,
+            'rows' => $rows,
+        ];
+    }
+
+    private static function pulse(): array
+    {
+        $today = now()->toDateString();
+        $students = DB::table('student_profiles')->where('status', 'active')->get(['user_id', 'class_name', 'section']);
+        $marks = DB::table('attendance_days')->where('date', $today)->get(['user_id', 'status'])->keyBy('user_id');
+        $byClass = [];
+        $sections = [];
+
+        foreach ($students as $student) {
+            $byClass[$student->class_name]['total'] = ($byClass[$student->class_name]['total'] ?? 0) + 1;
+            $byClass[$student->class_name]['present'] = ($byClass[$student->class_name]['present'] ?? 0) + ((($marks[$student->user_id]->status ?? null) === 'present') ? 1 : 0);
+            $key = $student->class_name.'-'.$student->section;
+            $sections[$key]['total'] = ($sections[$key]['total'] ?? 0) + 1;
+            $sections[$key]['done'] = ($sections[$key]['done'] ?? 0) + (isset($marks[$student->user_id]) ? 1 : 0);
+        }
+
+        $classes = [];
+        foreach (range(1, 10) as $class) {
+            $name = "Class {$class}";
+            $total = $byClass[$name]['total'] ?? 0;
+            $present = $byClass[$name]['present'] ?? 0;
+            $classes[] = ['name' => $name, 'percent' => $total === 0 ? 0 : (int) round($present / $total * 100)];
+        }
+
+        $pending = [];
+        foreach ($sections as $name => $section) {
+            if ($section['done'] < $section['total']) {
+                $pending[] = $name;
+            }
+        }
+        sort($pending);
+
+        $sectionCount = max(count($sections), 1);
+        $payments = DB::table('fee_payments')
+            ->where('paid_on', '>=', now()->subDays(30)->toDateString())
+            ->selectRaw('paid_on, sum(amount) as total')
+            ->groupBy('paid_on')
+            ->get();
+
+        return [
+            'students' => $students->count(),
+            'staff' => User::query()->where('role', 'staff')->count(),
+            'unpaid' => DB::table('fee_invoices')->whereIn('status', ['unpaid', 'partial'])->count(),
+            'progress' => (int) round((count($sections) - count($pending)) / $sectionCount * 100),
+            'pendingCount' => count($pending),
+            'pending' => $pending,
+            'classes' => $classes,
+            'collected' => (int) $payments->sum('total'),
+            'best' => (int) $payments->max('total'),
+        ];
+    }
+
+    private static function studentDirectory(Request $request): array
+    {
+        $class = (string) $request->query('class', '');
+        $section = (string) $request->query('section', '');
+        $status = (string) $request->query('status', 'active');
+        $search = trim((string) $request->query('q', ''));
+        $page = max(1, (int) $request->query('page', 1));
+
+        $query = User::query()
+            ->where('users.role', 'student')
+            ->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')
+            ->select('users.*');
+
+        if ($status !== 'all') {
+            $query->where('student_profiles.status', $status === '' ? 'active' : $status);
+        }
+        if ($class !== '') {
+            $query->where('student_profiles.class_name', $class);
+        }
+        if ($section !== '') {
+            $query->where('student_profiles.section', $section);
+        }
+        if ($search !== '') {
+            $query->where(function ($inner) use ($search) {
+                $inner->where('users.name', 'like', "%{$search}%")
+                    ->orWhere('student_profiles.admission_no', 'like', "%{$search}%")
+                    ->orWhere('student_profiles.guardian_mobile', 'like', "%{$search}%");
+            });
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->with('profile')->orderBy('student_profiles.admission_no')->forPage($page, 50)->get();
+
+        return [
+            'kind' => 'students',
+            'title' => 'Students',
+            'subtitle' => 'Search, filter and manage the student body.',
+            'canAdmit' => $request->user()?->role === 'admin',
+            'filters' => ['q' => $search, 'class' => $class, 'section' => $section, 'status' => $status, 'page' => $page],
+            'classes' => collect(range(1, 10))->map(fn ($n) => "Class {$n}")->all(),
+            'total' => $total,
+            'from' => $total === 0 ? 0 : (($page - 1) * 50) + 1,
+            'to' => min($page * 50, $total),
+            'lastPage' => max(1, (int) ceil($total / 50)),
+            'rows' => $rows->map(function (User $user) {
+                $profile = $user->profile;
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'admissionNo' => $profile->admission_no ?? '—',
+                    'class' => trim(str_replace('Class ', '', (string) $profile->class_name).'-'.$profile->section, '-'),
+                    'roll' => $profile->roll_no ?? '—',
+                    'gender' => $profile->gender ?? '—',
+                    'dob' => $profile->date_of_birth?->format('d-m-Y') ?? '—',
+                    'shift' => $profile->shift ?? '—',
+                    'mobile' => $profile->guardian_mobile ?? '—',
+                    'status' => ucfirst((string) ($profile->status ?? 'active')),
+                ];
+            })->all(),
+        ];
+    }
+
+    private static function profile(int $id): array
+    {
+        $user = User::query()->where('role', 'student')->with('profile')->findOrFail($id);
+        $profile = $user->profile;
+        abort_if($profile === null, 404);
+
+        return [
+            'kind' => 'profile',
+            'title' => 'Student Profile',
+            'subtitle' => $profile->admission_no.' · Class '.trim(str_replace('Class ', '', (string) $profile->class_name).'-'.$profile->section).', Roll '.$profile->roll_no.' · Session '.$profile->session,
+            'student' => [
+                'name' => $user->name,
+                'status' => ucfirst((string) $profile->status),
+                'dob' => $profile->date_of_birth?->format('d-m-Y') ?? '—',
+                'gender' => $profile->gender ?? '—',
+                'religion' => $profile->religion ?? '—',
+                'mobile' => $user->phone ?? '—',
+                'email' => $user->email,
+                'address' => $profile->address ?? '—',
+                'username' => $user->username,
+                'guardian' => $profile->guardian_name ?? '—',
+                'guardianMobile' => $profile->guardian_mobile ?? '—',
+                'enrollment' => $profile->session.' — Class '.trim(str_replace('Class ', '', (string) $profile->class_name).'-'.$profile->section).', Roll '.$profile->roll_no,
+            ],
+        ];
+    }
+
+    private static function admission(): array
+    {
+        return [
+            'kind' => 'admission',
+            'title' => 'New admission',
+            'subtitle' => 'Enroll a student into the active session.',
+            'classes' => collect(range(1, 10))->map(fn ($n) => "Class {$n}")->all(),
+            'sections' => ['A', 'B'],
+        ];
+    }
+
+    private static function register(User $user, Request $request): array
+    {
+        $sections = self::sectionOptions($user);
+        $section = (string) $request->query('section', $sections[0] ?? '');
+        if (! in_array($section, $sections, true)) {
+            $section = $sections[0] ?? '';
+        }
+        $date = (string) $request->query('date', now()->toDateString());
+        [$class, $letter] = array_pad(explode('-', str_replace('Class ', '', $section), 2), 2, '');
+        $className = $class === '' ? '' : 'Class '.$class;
+
+        $students = $section === '' ? collect() : User::query()
+            ->where('role', 'student')
+            ->whereHas('profile', fn ($query) => $query->where('class_name', $className)->where('section', $letter)->where('status', 'active'))
+            ->with('profile')
+            ->get()
+            ->sortBy(fn (User $student) => (int) $student->profile->roll_no)
+            ->values();
+
+        $marks = DB::table('attendance_days')
+            ->where('date', $date)
+            ->whereIn('user_id', $students->pluck('id'))
+            ->pluck('status', 'user_id');
+
+        return [
+            'kind' => 'attendance',
+            'title' => 'Mark Attendance',
+            'subtitle' => 'Pick your section and date — everyone starts Present, just flag the exceptions.',
+            'sections' => $sections,
+            'section' => $section,
+            'date' => $date,
+            'students' => $students->map(fn (User $student) => [
+                'id' => $student->id,
+                'roll' => $student->profile->roll_no,
+                'name' => $student->name,
+                'status' => $marks[$student->id] ?? 'present',
+            ])->all(),
+        ];
+    }
+
+    /** @return list<string> */
+    private static function sectionOptions(User $user): array
+    {
+        if ($user->role === 'staff') {
+            return ['Class 8-A'];
+        }
+
+        return StudentProfile::query()
+            ->where('status', 'active')
+            ->select('class_name', 'section')
+            ->distinct()
+            ->orderBy('class_name')
+            ->orderBy('section')
+            ->get()
+            ->map(fn ($row) => $row->class_name.'-'.$row->section)
+            ->all();
+    }
+
+    private static function noticeBoard(Request $request): array
+    {
+        $search = trim((string) $request->query('q', ''));
+        $notices = DB::table('school_notices')
+            ->when($search !== '', fn ($query) => $query->where('title', 'like', "%{$search}%"))
+            ->orderByDesc('published_on')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => $row->id,
+                'title' => $row->title,
+                'body' => $row->body,
+                'published' => $row->published_on,
+                'expires' => $row->expires_on,
+                'active' => $row->expires_on === null || $row->expires_on >= now()->toDateString(),
+            ])
+            ->all();
+
+        return [
+            'kind' => 'notices',
+            'title' => 'Notices',
+            'subtitle' => 'Announcements currently on the notice board.',
+            'q' => $search,
+            'notices' => $notices,
+        ];
+    }
+
+    private static function homeworkBoard(Request $request): array
+    {
+        $search = trim((string) $request->query('q', ''));
+        $rows = DB::table('homework_items')
+            ->join('student_profiles', 'student_profiles.user_id', '=', 'homework_items.user_id')
+            ->when($search !== '', fn ($query) => $query->where('homework_items.title', 'like', "%{$search}%"))
+            ->orderByDesc('homework_items.due_on')
+            ->limit(300)
+            ->get(['homework_items.title', 'homework_items.subject', 'homework_items.teacher', 'homework_items.due_on', 'homework_items.status', 'student_profiles.class_name', 'student_profiles.section'])
+            ->unique(fn ($row) => $row->title.'|'.$row->class_name.'|'.$row->section)
+            ->take(40)
+            ->values()
+            ->map(fn ($row) => [
+                'title' => $row->title,
+                'teacher' => $row->teacher ?? '—',
+                'class' => trim($row->class_name.' '.$row->section),
+                'subject' => $row->subject,
+                'due' => $row->due_on,
+                'status' => $row->status,
+            ])
+            ->all();
+
+        return [
+            'kind' => 'homework',
+            'title' => 'Homework',
+            'subtitle' => 'Assignments published to a class section.',
+            'q' => $search,
+            'rows' => $rows,
+            'classes' => collect(range(1, 10))->map(fn ($n) => "Class {$n}")->all(),
+            'sections' => ['A', 'B'],
+            'subjects' => ['Bangla', 'English', 'Mathematics', 'Science', 'Bangladesh & Global Studies', 'Religion & Moral Education', 'ICT'],
+        ];
+    }
+
+    private static function leaveBoard(): array
+    {
+        $rows = DB::table('leave_requests')
+            ->join('users', 'users.id', '=', 'leave_requests.user_id')
+            ->orderByDesc('leave_requests.start_date')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => $row->id,
+                'name' => $row->name,
+                'type' => $row->leave_type,
+                'dates' => $row->start_date.' – '.$row->end_date,
+                'reason' => $row->reason,
+                'status' => $row->status,
+            ])
+            ->all();
+
+        return [
+            'kind' => 'leave',
+            'title' => 'Leave applications',
+            'subtitle' => 'Approve or reject requests from students and staff.',
+            'rows' => $rows,
+        ];
+    }
+
+    private static function feeBoard(): array
+    {
+        $rows = DB::table('fee_invoices')
+            ->join('users', 'users.id', '=', 'fee_invoices.user_id')
+            ->orderBy('fee_invoices.status')
+            ->orderBy('users.name')
+            ->limit(80)
+            ->get()
+            ->map(fn ($row) => [
+                'id' => $row->id,
+                'student' => $row->name,
+                'label' => $row->label,
+                'number' => $row->invoice_no,
+                'payable' => (int) $row->payable,
+                'paid' => (int) $row->paid,
+                'status' => $row->status,
+            ])
+            ->all();
+
+        return [
+            'kind' => 'fees',
+            'title' => 'Fee collection',
+            'subtitle' => 'Unpaid and partially paid invoices.',
             'rows' => $rows,
         ];
     }

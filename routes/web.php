@@ -9,6 +9,12 @@ Route::get('/', function () {
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', \App\Http\Controllers\DashboardController::class)->name('dashboard');
+    Route::post('app/notices', [\App\Http\Controllers\OfficeActionController::class, 'storeNotice'])->name('office.notices.store');
+    Route::post('app/attendance', [\App\Http\Controllers\OfficeActionController::class, 'storeAttendance'])->name('office.attendance.store');
+    Route::post('app/homework', [\App\Http\Controllers\OfficeActionController::class, 'storeHomework'])->name('office.homework.store');
+    Route::post('app/students', [\App\Http\Controllers\OfficeActionController::class, 'storeStudent'])->name('office.students.store');
+    Route::post('app/leave/{leave}', [\App\Http\Controllers\OfficeActionController::class, 'decideLeave'])->name('office.leave.decide');
+    Route::post('app/fees/{invoice}', [\App\Http\Controllers\OfficeActionController::class, 'collectFee'])->name('office.fees.collect');
     Route::get('app/{page?}', [\App\Http\Controllers\OfficeController::class, 'show'])
         ->where('page', '.*')
         ->name('office');

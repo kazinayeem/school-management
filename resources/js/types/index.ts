@@ -22,6 +22,7 @@ export interface NavItem {
 }
 
 export interface SharedData {
+    menu: { title: string; url: string; icon: string }[];
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
@@ -33,6 +34,7 @@ export interface User {
     name: string;
     email: string;
     avatar?: string;
+    role: 'admin' | 'staff' | 'student' | 'parent';
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;

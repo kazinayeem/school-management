@@ -24,7 +24,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         login: '',
         password: '',
         role: 'admin' as Role,
-        remember: false,
+        remember: false as boolean,
     });
     const [show, setShow] = useState(false);
     const current = roles.find((r) => r.key === data.role)!;

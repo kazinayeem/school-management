@@ -180,4 +180,25 @@ class CampusRulesTest extends TestCase
         $this->actingAs($this->user('superadmin'));
         $this->get('/app/system/roles')->assertInertia(fn (Assert $p) => $p->has('modules')->has('granted.teacher')->has('granted.staff'));
     }
+
+    public function test_parent_sees_visible_conduct_notes_public_teachers_have_photos_and_admit_cards_carry_them(): void
+    {
+        $student = $this->user('student');
+        DB::table('student_notes')->insert([
+            ['user_id' => $student->id, 'kind' => 'commendation', 'title' => 'Visible note', 'occurred_on' => today()->toDateString(), 'visible_to_parent' => 1],
+            ['user_id' => $student->id, 'kind' => 'violation', 'title' => 'Private note', 'occurred_on' => today()->toDateString(), 'visible_to_parent' => 0],
+        ]);
+
+        $this->actingAs($this->user('parent'))->get('/parent/conduct?child='.$student->id)->assertInertia(fn (Assert $p) => $p
+            ->where('page', 'conduct')->has('data', fn (Assert $d) => $d->where('0.title', 'Visible note')->etc()));
+        $this->assertSame(1, collect(DB::table('student_notes')->where('user_id', $student->id)->where('visible_to_parent', 1)->get())->where('title', 'Visible note')->count());
+
+        $this->post('/logout');
+        $this->get('/teachers')->assertInertia(fn (Assert $p) => $p->has('page.teachers', 24)->where('page.teachers.0.name', fn ($n) => is_string($n)));
+
+        DB::table('users')->where('id', $student->id)->update(['photo' => 'photos/seed/student.svg']);
+        $exam = DB::table('exams')->value('id');
+        $this->actingAs($this->user('superadmin'))->get("/app/exams/admit-cards?exam={$exam}&class=Class%208&section=A")
+            ->assertInertia(fn (Assert $p) => $p->where('students.0.photo', '/storage/photos/seed/student.svg'));
+    }
 }

@@ -1,10 +1,11 @@
+import { Avatar } from '@/components/avatar';
 import { Card, inputCls, Nav, OfficePage, primaryBtn } from '@/components/office-ui';
 import { useI18n } from '@/lib/i18n';
 import { router } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { useState } from 'react';
 
-type Student = { id: number; name: string; roll_no: string; section: string; admission_no: string };
+type Student = { id: number; name: string; roll_no: string; section: string; admission_no: string; photo?: string | null };
 type Slot = { subject: string; date: string; time: string; room: string | null };
 
 export default function AdmitCards({
@@ -105,7 +106,9 @@ export default function AdmitCards({
                                 <p className="text-xs text-slate-500">{exam.name}</p>
                                 <p className="mt-1 text-xs font-semibold tracking-widest uppercase">{t('Admit Card')}</p>
                             </header>
-                            <dl className="my-3 grid grid-cols-2 gap-x-4 gap-y-1">
+                            <div className="my-3 flex items-start gap-4">
+                                <Avatar name={s.name} src={s.photo} className="h-24 w-20 shrink-0 rounded-md" />
+                            <dl className="grid flex-1 grid-cols-2 gap-x-4 gap-y-1">
                                 <div>
                                     <dt className="text-xs text-slate-400">{t('Name')}</dt>
                                     <dd className="font-medium">{s.name}</dd>
@@ -125,6 +128,7 @@ export default function AdmitCards({
                                     <dd>{s.roll_no}</dd>
                                 </div>
                             </dl>
+                            </div>
                             <table className="w-full text-xs">
                                 <thead>
                                     <tr className="border-b text-slate-500">

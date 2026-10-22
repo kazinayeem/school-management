@@ -6,6 +6,18 @@ class PublicContent
 {
     public static function teachers(): array
     {
+        $rows = \Illuminate\Support\Facades\DB::table('users')
+            ->join('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')
+            ->where('users.role', 'teacher')->where('users.is_active', 1)
+            ->orderByRaw("case when staff_profiles.designation like 'Senior%' then 0 else 1 end")->orderBy('staff_profiles.employee_no')
+            ->get(['users.name', 'users.photo', 'staff_profiles.department', 'staff_profiles.designation']);
+
+        if ($rows->isNotEmpty()) {
+            return $rows->map(fn ($r) => [
+                'name' => $r->name, 'subject' => $r->department ?: 'Teacher', 'role' => $r->designation ?: 'Teacher', 'photo' => Photos::url($r->photo),
+            ])->all();
+        }
+
         return [
             ['name' => 'John Smith', 'subject' => 'Mathematics', 'role' => 'Assistant Teacher'],
             ['name' => 'Alisha Henry', 'subject' => 'English', 'role' => 'Assistant Teacher'],

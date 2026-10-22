@@ -1,3 +1,4 @@
+import { useI18n } from '@/lib/i18n';
 import { ProfileForm } from '@/components/portal-profile';
 import { PortalShell } from '@/components/portal-shell';
 import {
@@ -38,6 +39,32 @@ type Profile = {
     dues: { total: number; count: number; next_due_date: string | null };
 };
 
+type ConductNote = { id: number; kind: string; severity: string | null; title: string; details: string | null; action_taken: string | null; occurred_on: string };
+
+function ConductBoard({ notes }: { notes: ConductNote[] }) {
+    const { t } = useI18n();
+
+    if (notes.length === 0) {
+        return <p className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">{t('No notes about this student.')}</p>;
+    }
+
+    return (
+        <ul className="space-y-3">
+            {notes.map((n) => (
+                <li key={n.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${n.kind === 'violation' ? 'bg-red-50 text-red-700' : n.kind === 'commendation' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{n.kind}</span>
+                        <h3 className="font-semibold">{n.title}</h3>
+                        <span className="ms-auto text-xs text-slate-400">{n.occurred_on}</span>
+                    </div>
+                    {n.details && <p className="mt-2 text-sm text-slate-600">{n.details}</p>}
+                    {n.action_taken && <p className="mt-1 text-xs text-slate-500">{t('Action taken')}: {n.action_taken}</p>}
+                </li>
+            ))}
+        </ul>
+    );
+}
+
 const titles: Record<string, string> = {
     home: 'My children',
     attendance: 'Attendance',
@@ -48,6 +75,7 @@ const titles: Record<string, string> = {
     homework: 'Homework',
     library: 'Library',
     transport: 'School Bus',
+    conduct: 'Conduct',
     profile: 'My Profile',
 };
 
@@ -99,6 +127,7 @@ export default function ParentPortal({
             {page === 'homework' && <HomeworkBoard items={data as HomeworkItem[]} canSubmit={false} />}
             {page === 'library' && <LibraryBoard library={data as Library} />}
             {page === 'transport' && <BusBoard bus={data as Bus} />}
+            {page === 'conduct' && <ConductBoard notes={data as unknown as ConductNote[]} />}
             {page === 'documents' && <DocumentsBoard documents={data as DocumentRow[]} />}
             {page === 'leave' && <LeaveBoard leaves={data as LeaveRow[]} action={route('parent.leave.store')} child={child} />}
             {page === 'profile' && (

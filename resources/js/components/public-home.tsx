@@ -134,9 +134,13 @@ export function PublicHome({ page }: { page: Record<string, any> }) {
                 <h2 className="mt-2 text-3xl font-extrabold">Meet our dedicated faculty</h2>
                 <p className="mt-2 text-slate-500">Small sections, so every child is taught by someone who knows their name.</p>
                 <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {page.teachers.map((teacher: { name: string; subject: string; role: string }) => (
+                    {page.teachers.map((teacher: { name: string; subject: string; role: string; photo?: string | null }) => (
                         <article key={teacher.name} className="rounded-2xl bg-white p-5 shadow-sm">
-                            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-fuchsia-100 font-bold text-[#b31299]">{teacher.name.charAt(0)}</span>
+                            {teacher.photo ? (
+                                <img src={teacher.photo} alt={teacher.name} className="h-14 w-14 rounded-full object-cover" />
+                            ) : (
+                                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-fuchsia-100 font-bold text-[#b31299]">{teacher.name.charAt(0)}</span>
+                            )}
                             <p className="mt-3 text-xs font-semibold tracking-wide text-[#b31299]">{teacher.subject}</p>
                             <h5 className="font-bold">{teacher.name}</h5>
                             <p className="text-sm text-slate-500">{teacher.role}</p>

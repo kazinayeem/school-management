@@ -13,8 +13,9 @@ export function PublicPages({ page }: { page: Record<string, any> }) {
         return (
             <Article title="Teachers" body="Small sections, so every child is taught by someone who knows their name.">
                 <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {page.teachers.map((teacher: { name: string; subject: string; role: string }) => (
+                    {page.teachers.map((teacher: { name: string; subject: string; role: string; photo?: string | null }) => (
                         <article key={teacher.name} className="rounded-2xl border border-slate-200 bg-white p-5">
+                            {teacher.photo && <img src={teacher.photo} alt={teacher.name} className="mb-3 h-16 w-16 rounded-full object-cover" />}
                             <p className="text-xs font-semibold text-[#b31299]">{teacher.subject}</p>
                             <h3 className="font-bold">{teacher.name}</h3>
                             <p className="text-sm text-slate-500">{teacher.role}</p>

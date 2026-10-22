@@ -266,7 +266,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('parent/password', [\App\Http\Controllers\ParentPortalController::class, 'updatePassword'])->name('parent.password.update');
     Route::post('parent/leave', [\App\Http\Controllers\ParentPortalController::class, 'storeLeave'])->name('parent.leave.store');
     Route::get('parent/{page?}', [\App\Http\Controllers\ParentPortalController::class, 'show'])
-        ->where('page', 'attendance|routine|calendar|documents|leave|homework|library|transport|profile')
+        ->where('page', 'attendance|routine|calendar|documents|leave|homework|library|transport|conduct|profile')
         ->name('parent.portal');
 
     Route::get('m/{slug}', function (\Illuminate\Http\Request $request, string $slug) {

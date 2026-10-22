@@ -193,7 +193,11 @@ class ExamsController extends Controller
             'filters' => ['exam' => $exam->id ?? 0, 'class' => $class, 'section' => $section ?? '', 'roll' => $roll],
             'exam' => $exam,
             'schedule' => $schedule,
-            'students' => $students,
+            'students' => $students->map(function ($s) {
+                $s->photo = \App\Support\Photos::url($s->photo);
+
+                return $s;
+            })->values(),
             'school' => ['name' => SiteSettings::get('school_name', config('app.name'))],
         ]);
     }
@@ -476,7 +480,7 @@ class ExamsController extends Controller
             ->where('student_profiles.status', 'active')->where('student_profiles.class_name', $class)
             ->when($section, fn ($q, $s) => $q->where('student_profiles.section', $s))
             ->orderBy('student_profiles.section')->orderByRaw('cast(student_profiles.roll_no as integer)')
-            ->get(['users.id', 'users.name', 'student_profiles.roll_no', 'student_profiles.section', 'student_profiles.admission_no', 'student_profiles.class_name']);
+            ->get(['users.id', 'users.name', 'student_profiles.roll_no', 'student_profiles.section', 'student_profiles.admission_no', 'student_profiles.class_name', 'users.photo']);
     }
 
     /** @return list<int> */

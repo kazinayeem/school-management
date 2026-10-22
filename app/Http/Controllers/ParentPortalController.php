@@ -19,7 +19,7 @@ class ParentPortalController extends Controller
     {
         $parent = $this->parent($request);
         $page = $page ?: 'home';
-        abort_unless(in_array($page, ['home', 'attendance', 'routine', 'calendar', 'documents', 'leave', 'homework', 'library', 'transport', 'profile'], true), 404);
+        abort_unless(in_array($page, ['home', 'attendance', 'routine', 'calendar', 'documents', 'leave', 'homework', 'library', 'transport', 'conduct', 'profile'], true), 404);
 
         $children = $parent->students()->with('profile')->orderBy('name')->get();
         abort_if($children->isEmpty(), 404);
@@ -131,6 +131,8 @@ class ParentPortalController extends Controller
             'transport' => PortalData::bus($child),
             'documents' => PortalData::documents($child),
             'leave' => PortalData::leaves($child),
+            'conduct' => \Illuminate\Support\Facades\DB::table('student_notes')->where('user_id', $child->id)->where('visible_to_parent', 1)
+                ->orderByDesc('occurred_on')->get(['id', 'kind', 'severity', 'title', 'details', 'action_taken', 'occurred_on'])->all(),
             default => null,
         };
     }

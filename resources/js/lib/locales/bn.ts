@@ -967,4 +967,5 @@ export const bn: Record<string, string> = {
     "{n} rule violation(s)": "{n}টি নিয়ম লঙ্ঘন",
     "{n} selected": "{n}টি নির্বাচিত",
     "Visible to the parent": "অভিভাবক দেখতে পারবেন",
+    "Conduct": "আচরণ",
 };

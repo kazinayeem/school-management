@@ -48,6 +48,7 @@ class RoleMenu
             ['Homework', 'homework', 'BookOpen', '/parent/homework'],
             ['Library', 'library', 'BookOpen', '/parent/library'],
             ['School Bus', 'transport', 'Bus', '/parent/transport'],
+            ['Conduct', 'conduct', 'FileText', '/parent/conduct'],
             ['My Profile', 'profile', 'User', '/parent/profile'],
         ],
     ];

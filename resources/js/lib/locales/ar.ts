@@ -966,4 +966,5 @@ export const ar: Record<string, string> = {
     "{n} rule violation(s)": "{n} مخالفة للقواعد",
     "{n} selected": "تم تحديد {n}",
     "Visible to the parent": "مرئي لولي الأمر",
+    "Conduct": "السلوك",
 };

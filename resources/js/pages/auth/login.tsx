@@ -2,6 +2,8 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { Check, ChevronRight, Copy, Eye, EyeOff, GraduationCap, Languages as LanguagesIcon, Lock, ShieldCheck, User, Users, X } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
+import { ThemeToggle } from '@/components/preferences';
+import { useI18n, type Locale } from '@/lib/i18n';
 import { Branding, Language, SharedData } from '@/types';
 
 type Role = 'admin' | 'staff' | 'student' | 'parent';
@@ -32,7 +34,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
     const [dismissedError, setDismissedError] = useState(false);
     const [logoFailed, setLogoFailed] = useState(false);
     const [languageOpen, setLanguageOpen] = useState(false);
-    const [locale, setLocale] = useState('en');
+    const { t, locale, setLocale } = useI18n();
 
     const current = branding.demo[data.role] ?? branding.demo.admin;
     const error = errors.login || errors.password || errors.role;
@@ -58,20 +60,15 @@ export default function Login({ status, canResetPassword }: LoginProps) {
     };
 
     const chooseLanguage = (language: Language) => {
-        setLocale(language.code);
+        setLocale(language.code as Locale);
         setLanguageOpen(false);
-        document.documentElement.lang = language.code;
-        document.documentElement.dir = language.is_rtl ? 'rtl' : 'ltr';
     };
 
     const activeLanguage = branding.languages.find((language) => language.code === locale) ?? branding.languages[0];
 
     return (
         <div
-            className="flex min-h-screen items-center justify-center p-4 md:p-8"
-            style={{
-                background: 'radial-gradient(circle at 10% 10%, var(--color-indigo-50) 0, transparent 32%), #f5f7fc',
-            }}
+            className="themed login-bg flex min-h-screen items-center justify-center p-4 md:p-8"
         >
             <Head title="Log in" />
 
@@ -117,10 +114,11 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                 className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-medium"
                                 style={{ background: 'var(--color-indigo-50)', color: 'var(--color-indigo-600)' }}
                             >
-                                Demo
+                                {t('Demo')}
                             </span>
 
-                            <div className="ms-auto shrink-0">
+                            <div className="ms-auto flex shrink-0 items-center gap-2">
+                                <ThemeToggle />
                                 <div className="relative">
                                     <button
                                         type="button"
@@ -169,7 +167,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     className="mb-3 text-center text-[11px] font-bold tracking-[0.08em] uppercase"
                                     style={{ color: 'var(--color-indigo-600)' }}
                                 >
-                                    Select Your Role
+                                    {t('Select Your Role')}
                                 </p>
                                 <div className="grid grid-cols-4 gap-2">
                                     {roles.map(({ value, label, icon: Icon }) => {
@@ -213,7 +211,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                                 >
                                                     <Icon className="h-[17px] w-[17px]" strokeWidth={1.8} />
                                                 </span>
-                                                <strong className="text-center text-[14px] leading-tight font-semibold">{label}</strong>
+                                                <strong className="text-center text-[14px] leading-tight font-semibold">{t(label)}</strong>
                                             </label>
                                         );
                                     })}
@@ -222,7 +220,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
                             <div className="mt-4">
                                 <label htmlFor="identity" className="mb-2 block text-sm font-bold" style={{ color: '#334155' }}>
-                                    Username or email
+                                    {t('Username or email')}
                                 </label>
                                 <div
                                     className="flex h-[52px] items-center rounded-2xl border-[1.5px] px-4 transition-all duration-200 focus-within:bg-white"
@@ -234,7 +232,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                         type="text"
                                         required
                                         autoComplete="username"
-                                        placeholder="Your Username or Email*"
+                                        placeholder={t('Your Username or Email*')}
                                         value={data.login}
                                         onChange={(event) => setData('login', event.target.value)}
                                         className="flex-1 bg-transparent text-[15px] font-medium placeholder-[#94a3b8] outline-none"
@@ -245,7 +243,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
                             <div>
                                 <label htmlFor="password" className="mb-2 block text-sm font-bold" style={{ color: '#334155' }}>
-                                    Password
+                                    {t('Password')}
                                 </label>
                                 <div
                                     className="flex h-[52px] items-center rounded-2xl border-[1.5px] px-4 transition-all duration-200 focus-within:bg-white"
@@ -257,7 +255,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                         type={showPassword ? 'text' : 'password'}
                                         required
                                         autoComplete="current-password"
-                                        placeholder="Your Password*"
+                                        placeholder={t('Your Password*')}
                                         value={data.password}
                                         onChange={(event) => setData('password', event.target.value)}
                                         className="flex-1 bg-transparent text-[15px] font-medium placeholder-[#94a3b8] outline-none"
@@ -319,12 +317,12 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                             }`}
                                         />
                                     </span>
-                                    <span className="font-medium">Remember me</span>
+                                    <span className="font-medium">{t('Remember me')}</span>
                                 </label>
 
                                 {canResetPassword && (
                                     <Link href={route('password.request')} className="font-bold" style={{ color: 'var(--color-indigo-600)' }}>
-                                        Forgot password?
+                                        {t('Forgot password?')}
                                     </Link>
                                 )}
                             </div>
@@ -356,7 +354,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                 }}
                             >
                                 <Lock className="h-[18px] w-[18px]" strokeWidth={2} />
-                                {processing ? 'Signing in...' : 'Login'}
+                                {processing ? t('Signing in...') : t('Login')}
                                 <ChevronRight className="h-[18px] w-[18px]" strokeWidth={2} />
                             </button>
                         </form>
@@ -393,17 +391,17 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             style={{ border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.1)' }}
                         >
                             <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#88f0c9', boxShadow: '0 0 12px #88f0c9' }} />
-                            <span className="text-[10px] font-extrabold">School Management Simplified</span>
+                            <span className="text-[10px] font-extrabold">{t('School Management Simplified')}</span>
                         </div>
                         <h2 className="mt-[22px] mb-[15px] text-[43px] leading-[0.93] font-black tracking-[-0.055em]">
-                            Continue
+                            {t('Continue')}
                             <br />
                             <em className="not-italic" style={{ color: 'var(--color-indigo-200)' }}>
-                                Managing.
+                                {t('Managing.')}
                             </em>
                         </h2>
                         <p className="mx-auto max-w-[430px] text-[13px] leading-[1.65]" style={{ color: 'var(--color-indigo-100)' }}>
-                            Pick up right where you left off. Sign in to your school's all-in-one management platform.
+                            {t("Pick up right where you left off. Sign in to your school's all-in-one management platform.")}
                         </p>
                     </div>
 
@@ -438,7 +436,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             }}
                         >
                             <ShieldCheck className="h-5 w-5" strokeWidth={1.8} />
-                            <span>Secure access</span>
+                            <span>{t('Secure access')}</span>
                         </div>
 
                         <div
@@ -450,7 +448,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             }}
                         >
                             <i className="h-2 w-2 rounded-full" style={{ background: '#66ebbd', boxShadow: '0 0 12px #66ebbd' }} />
-                            <span>Systems online</span>
+                            <span>{t('Systems online')}</span>
                             <strong style={{ color: '#8df0ce' }}>99.9%</strong>
                         </div>
 
@@ -473,7 +471,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     </b>
                                 ))}
                             </div>
-                            <span>Team connected</span>
+                            <span>{t('Team connected')}</span>
                         </div>
                     </div>
 
@@ -496,7 +494,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             >
                                 <strong className="text-[15px]">{value}</strong>
                                 <span className="mt-0.5 text-[8px]" style={{ color: 'var(--color-indigo-100)' }}>
-                                    {label}
+                                    {t(label)}
                                 </span>
                             </div>
                         ))}

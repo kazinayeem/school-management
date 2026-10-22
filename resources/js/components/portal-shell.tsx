@@ -1,3 +1,5 @@
+import { LanguageMenu, ThemeToggle } from '@/components/preferences';
+import { useI18n } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
@@ -45,12 +47,12 @@ export function PortalShell({
     const path = usePage().url.split('?')[0];
     const [open, setOpen] = useState(true);
     const [bell, setBell] = useState(false);
-    const [languages, setLanguages] = useState(false);
+    const { t } = useI18n();
     const home = menu[0]?.url ?? '/dashboard';
     const sessionLabel = roleLabel === 'Student' ? 'Session 2026' : 'Session';
 
     return (
-        <div className="flex min-h-screen bg-[#f4f6fb] text-slate-800">
+        <div className="themed flex min-h-screen bg-[#f4f6fb] text-slate-800">
             <aside className={`flex shrink-0 flex-col bg-[#0c1222] text-slate-300 transition-all ${open ? 'w-[260px]' : 'w-[76px]'}`}>
                 <Link href={home + query} className="flex h-20 items-center px-5 text-white" aria-label={name}>
                     <img
@@ -59,7 +61,7 @@ export function PortalShell({
                         className={`${open ? 'h-11 w-auto max-w-[200px]' : 'h-8 w-8'} object-contain object-left`}
                     />
                 </Link>
-                {open && <p className="px-5 pb-3 text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase">{caption}</p>}
+                {open && <p className="px-5 pb-3 text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase">{t(caption)}</p>}
                 <nav className="flex-1 space-y-1 overflow-y-auto px-3">
                     {menu.map((item) => {
                         const Icon = icons[item.icon] ?? LayoutGrid;
@@ -75,7 +77,7 @@ export function PortalShell({
                                 }`}
                             >
                                 <Icon className="h-4 w-4 shrink-0" />
-                                {open && <span className="truncate">{item.title}</span>}
+                                {open && <span className="truncate">{t(item.title)}</span>}
                             </Link>
                         );
                     })}
@@ -89,10 +91,10 @@ export function PortalShell({
                 <header className="flex h-[66px] items-center justify-between gap-3 border-b border-slate-200 bg-white px-5">
                     <p className="text-sm text-slate-500">
                         <Link href={home + query} className="hover:text-slate-800">
-                            Home
+                            {t('Home')}
                         </Link>
                         <span className="px-1">/</span>
-                        <span className="font-medium text-slate-800">{title}</span>
+                        <span className="font-medium text-slate-800">{t(title)}</span>
                     </p>
                     <div className="flex items-center gap-2">
                         <span className="hidden items-center gap-1.5 rounded-full bg-pink-50 px-3 py-1.5 text-xs font-medium text-[#b31299] sm:inline-flex">
@@ -108,9 +110,9 @@ export function PortalShell({
                                 )}
                             </button>
                             {bell && (
-                                <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xl">
+                                <div className="absolute end-0 z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xl">
                                     {notices.length === 0 ? (
-                                        <p className="py-4 text-center text-sm text-slate-400">No notices yet.</p>
+                                        <p className="py-4 text-center text-sm text-slate-400">{t('No notices yet.')}</p>
                                     ) : (
                                         notices.map((notice) => (
                                             <div key={notice.title} className="border-b border-slate-100 py-2 last:border-0">
@@ -122,36 +124,15 @@ export function PortalShell({
                                 </div>
                             )}
                         </div>
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setLanguages(!languages)}
-                                className="hidden items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 sm:inline-flex"
-                            >
-                                <span>🇬🇧</span> English <ChevronDown className="h-3.5 w-3.5" />
-                            </button>
-                            {languages && (
-                                <div className="absolute right-0 z-20 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-                                    {branding.languages.map((language) => (
-                                        <button
-                                            key={language.code}
-                                            type="button"
-                                            onClick={() => setLanguages(false)}
-                                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
-                                        >
-                                            <span>{language.flag}</span> {language.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2 border-l border-slate-200 pl-2">
+                        <LanguageMenu className="hidden sm:block" />
+                        <ThemeToggle />
+                        <div className="flex items-center gap-2 border-s border-slate-200 ps-2">
                             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-pink-50 text-sm font-bold text-[#b31299]">
                                 {auth.user.name.charAt(0)}
                             </span>
                             <span className="hidden leading-tight sm:block">
                                 <span className="block text-sm font-semibold text-slate-800">{auth.user.name}</span>
-                                <span className="block text-[11px] text-slate-400">{roleLabel}</span>
+                                <span className="block text-[11px] text-slate-400">{t(roleLabel)}</span>
                             </span>
                         </div>
                         <button

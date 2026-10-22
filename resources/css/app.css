@@ -201,3 +201,93 @@
 .animate-model-float {
     animation: model-float 6s ease-in-out infinite;
 }
+
+/* Languages: Bangla and Arabic need their own fonts. */
+html[lang='bn'] body {
+    font-family: 'Noto Sans Bengali', 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+html[lang='ar'] body {
+    font-family: 'Noto Sans Arabic', 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Dark theme for the hand-styled pages (admin shell, portals, public site, login). */
+.dark :is(.admin-shell, .themed) {
+    color-scheme: dark;
+    color: #e2e8f0;
+}
+
+.dark :is(.admin-shell, .themed).themed-root,
+.dark .admin-shell {
+    background-color: #0b1020;
+}
+
+.dark :is(.admin-shell, .themed) :is(.bg-white, .bg-white\/90, .bg-white\/80, .bg-white\/95) {
+    background-color: #111827;
+}
+
+.dark :is(.admin-shell, .themed) :is(.bg-slate-50, .bg-gray-50, .bg-slate-100, .bg-gray-100) {
+    background-color: #0f172a;
+}
+
+.dark :is(.admin-shell, .themed) :is(.bg-indigo-50, .bg-fuchsia-50, .bg-violet-50, .bg-pink-50, .bg-green-50, .bg-amber-50, .bg-rose-50, .bg-blue-50, .bg-sky-50, .bg-emerald-50) {
+    background-color: #1e1b3a;
+}
+
+.dark :is(.admin-shell, .themed) :is(.border-slate-200, .border-slate-100, .border-gray-200, .border-gray-100, .border-slate-300) {
+    border-color: #273044;
+}
+
+.dark :is(.admin-shell, .themed) :is(.divide-slate-100, .divide-gray-100, .divide-y) > :not(:last-child) {
+    border-color: #273044;
+}
+
+.dark :is(.admin-shell, .themed) :is(.text-slate-900, .text-slate-800, .text-slate-700, .text-gray-900, .text-gray-800, .text-gray-700) {
+    color: #e5e7eb;
+}
+
+.dark :is(.admin-shell, .themed) :is(.text-slate-600, .text-slate-500, .text-gray-600, .text-gray-500) {
+    color: #a5b0c2;
+}
+
+.dark :is(.admin-shell, .themed) :is(.text-slate-400, .text-gray-400) {
+    color: #8591a6;
+}
+
+.dark :is(.admin-shell, .themed) :is(input, textarea, select) {
+    background-color: #0f172a;
+    color: #e5e7eb;
+    border-color: #334155;
+}
+
+.dark :is(.admin-shell, .themed) thead {
+    background-color: #0f172a;
+}
+
+.dark :is(.admin-shell, .themed) :is(.hover\:bg-slate-50, .hover\:bg-slate-100, .hover\:bg-gray-50):hover {
+    background-color: #1a2236;
+}
+
+.dark :is(.admin-shell, .themed) :is(.shadow-sm, .shadow, .shadow-xl, .shadow-2xl, .shadow-lg) {
+    box-shadow: none;
+}
+
+.dark :is(.admin-shell, .themed) :is(.text-indigo-700, .text-fuchsia-700, .text-fuchsia-800) {
+    color: #e9a8f5;
+}
+
+.login-bg {
+    background: radial-gradient(circle at 10% 10%, var(--color-indigo-50) 0, transparent 32%), #f5f7fc;
+}
+
+.dark .login-bg {
+    background: radial-gradient(circle at 10% 10%, #2a1650 0, transparent 40%), #0b1020;
+}
+
+.dark .themed .from-white {
+    --tw-gradient-from: #111827;
+}
+
+.dark .themed .to-\[\#fbfbff\] {
+    --tw-gradient-to: #0f172a;
+}

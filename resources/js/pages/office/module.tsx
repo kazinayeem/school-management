@@ -1,8 +1,17 @@
-import { AdmissionView, AttendanceView, FeesView, HomeworkView, LeaveView, NoticesView, ProfileView, StudentsView } from '@/components/office-features';
+import {
+    AdmissionView,
+    AttendanceView,
+    FeesView,
+    HomeworkView,
+    LeaveView,
+    NoticesView,
+    ProfileView,
+    StudentsView,
+} from '@/components/office-features';
 import { OfficeShell } from '@/components/office-shell';
 import { Head } from '@inertiajs/react';
 
-const views: Record<string, (props: { module: Record<string, any> }) => JSX.Element> = {
+const views: Record<string, (props: { module: Record<string, any> }) => React.JSX.Element> = {
     students: StudentsView,
     profile: ProfileView,
     admission: AdmissionView,

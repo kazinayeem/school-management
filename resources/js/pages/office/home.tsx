@@ -69,8 +69,12 @@ export default function OfficeHome({
                         <p className="mt-1 text-sm text-slate-500">Here is what is happening at your school today.</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full border border-pink-100 bg-pink-50 px-3 py-1.5 text-xs font-semibold text-pink-700">{dashboard.session}</span>
-                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">{dashboard.today}</span>
+                        <span className="rounded-full border border-pink-100 bg-pink-50 px-3 py-1.5 text-xs font-semibold text-pink-700">
+                            {dashboard.session}
+                        </span>
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
+                            {dashboard.today}
+                        </span>
                     </div>
                 </div>
 
@@ -80,7 +84,11 @@ export default function OfficeHome({
                         const tone = metricTones[metric.tone] ?? metricTones.indigo;
 
                         return (
-                            <Link key={metric.label} href={metric.href} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                            <Link
+                                key={metric.label}
+                                href={metric.href}
+                                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                            >
                                 <div className="flex items-start justify-between">
                                     <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${tone.icon}`}>
                                         <Icon className="h-5 w-5" />
@@ -89,7 +97,7 @@ export default function OfficeHome({
                                 </div>
                                 <p className="mt-4 text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{metric.value}</p>
                                 <div className="mt-1 flex items-end justify-between gap-3">
-                                    <p className="whitespace-nowrap font-medium text-slate-800">{metric.label}</p>
+                                    <p className="font-medium whitespace-nowrap text-slate-800">{metric.label}</p>
                                     <p className="max-w-[44%] text-right text-[11px] leading-4 text-slate-400">{metric.note}</p>
                                 </div>
                             </Link>
@@ -105,7 +113,11 @@ export default function OfficeHome({
                             const Icon = snapshotIcons[index] ?? CircleDollarSign;
 
                             return (
-                                <Link key={item.label} href={item.href} className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                                <Link
+                                    key={item.label}
+                                    href={item.href}
+                                    className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                                >
                                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
                                         <Icon className="h-5 w-5" />
                                     </span>
@@ -217,13 +229,18 @@ export default function OfficeHome({
                                 <h2 className="font-semibold text-slate-900">Attendance status</h2>
                                 <p className="mt-0.5 text-sm text-slate-500">Sections that still need attention</p>
                             </div>
-                            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">{dashboard.pendingCount} pending</span>
+                            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                                {dashboard.pendingCount} pending
+                            </span>
                         </div>
                         <ul className="mt-4 divide-y divide-slate-100">
                             {dashboard.pending.map((section) => (
                                 <li key={section} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                                     <span className="font-medium text-slate-700">{section}</span>
-                                    <Link href="/app/attendance" className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-pink-50 hover:text-[#b31299]">
+                                    <Link
+                                        href="/app/attendance"
+                                        className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-pink-50 hover:text-[#b31299]"
+                                    >
                                         Mark now
                                     </Link>
                                 </li>
@@ -237,14 +254,20 @@ export default function OfficeHome({
                                 <h2 className="font-semibold text-slate-900">Recent activity</h2>
                                 <p className="mt-0.5 text-sm text-slate-500">Latest changes across the system</p>
                             </div>
-                            <button type="button" aria-label="Refresh activity" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                            <button
+                                type="button"
+                                aria-label="Refresh activity"
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                            >
                                 <RefreshCw className="h-4 w-4" />
                             </button>
                         </div>
                         <ul className="mt-4 space-y-3">
                             {dashboard.activity.map((item, index) => (
                                 <li key={index} className="flex items-start gap-3 text-sm">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-50 text-xs font-bold text-[#b31299]">{item.actor.charAt(0)}</span>
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-50 text-xs font-bold text-[#b31299]">
+                                        {item.actor.charAt(0)}
+                                    </span>
                                     <span className="min-w-0 flex-1 leading-5">
                                         <span className="block font-medium text-slate-800">{item.actor}</span>
                                         <span className="block text-slate-500">{item.action}</span>

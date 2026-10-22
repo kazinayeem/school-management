@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AcademicResources;
 use App\Support\OfficeMenu;
+use App\Support\OperationsResources;
 use App\Support\WebsiteResources;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,14 +18,19 @@ class WebsiteController extends Controller
 {
     public function index(Request $request, string $resource): Response
     {
-        $this->authorizeAdmin($request);
+        $readOnly = $request->user()->role !== 'admin';
+        if ($readOnly) {
+            abort_unless($this->group($request) === 'academic' && OfficeMenu::allows($request->user()->role, "/app/academic/{$resource}"), 403);
+        }
 
         $shared = [
-            'navigation' => OfficeMenu::for('admin'),
-            'roleLabel' => 'Super Admin',
+            'navigation' => OfficeMenu::for($request->user()->role),
+            'roleLabel' => $readOnly ? 'Teacher' : 'Super Admin',
+            'readOnly' => $readOnly,
         ];
 
         if ($resource === 'settings') {
+            abort_if($readOnly, 403);
             $fields = WebsiteResources::settingFields();
             $stored = DB::table('site_settings')->pluck('value', 'key');
             $values = [];
@@ -37,47 +44,75 @@ class WebsiteController extends Controller
             return Inertia::render('office/website', [
                 ...$shared,
                 'resource' => 'settings',
+                'baseUrl' => '/app/website/settings',
                 'definition' => ['label' => 'Site Settings', 'subtitle' => 'Contact details and options used across the public website.', 'fields' => $fields],
                 'values' => $values,
             ]);
         }
 
-        $def = WebsiteResources::all()[$resource];
+        $def = $this->defs($request)[$resource];
         [$col, $dir] = $def['order'];
+        $fields = $this->withOptions($def['fields']);
+        $query = isset($def['query']) ? $def['query']() : DB::table($def['table'])->orderBy($col, $dir);
+
+        $rows = $query->get()->map(function ($row) use ($fields) {
+            $row = (array) $row;
+            foreach ($fields as $f) {
+                if ($f['type'] === 'select' && isset($f['options'])) {
+                    $match = collect($f['options'])->firstWhere('value', (string) ($row[$f['name']] ?? ''));
+                    $row['__'.$f['name']] = $match['label'] ?? ($row[$f['name']] ?? '');
+                }
+            }
+
+            return $row;
+        });
 
         return Inertia::render('office/website', [
             ...$shared,
             'resource' => $resource,
-            'definition' => collect($def)->only(['label', 'subtitle', 'columns', 'fields'])->all(),
-            'rows' => DB::table($def['table'])->orderBy($col, $dir)->get(),
+            'baseUrl' => '/app/'.$this->group($request).'/'.$resource,
+            'definition' => ['fields' => $fields] + collect($def)->only(['label', 'subtitle', 'columns', 'column_labels'])->all(),
+            'rows' => $rows,
         ]);
     }
 
     public function store(Request $request, string $resource): RedirectResponse
     {
         $this->authorizeAdmin($request);
-        $def = WebsiteResources::all()[$resource];
+        $def = $this->defs($request)[$resource];
 
-        DB::table($def['table'])->insert($this->payload($request, $resource, $def) + ['created_at' => now(), 'updated_at' => now()]);
+        $newId = DB::table($def['table'])->insertGetId($this->payload($request, $resource, $def) + ['created_at' => now(), 'updated_at' => now()]);
+        $this->afterSave($resource, $newId);
 
-        return back()->with('status', "{$def['label']} entry added.");
+        return back()->with('status', 'Entry added.');
     }
 
     public function update(Request $request, string $resource, int $id): RedirectResponse
     {
         $this->authorizeAdmin($request);
-        $def = WebsiteResources::all()[$resource];
+        $def = $this->defs($request)[$resource];
         abort_unless(DB::table($def['table'])->where('id', $id)->exists(), 404);
 
         DB::table($def['table'])->where('id', $id)->update($this->payload($request, $resource, $def, $id) + ['updated_at' => now()]);
+        $this->afterSave($resource, $id);
 
-        return back()->with('status', "{$def['label']} entry updated.");
+        return back()->with('status', 'Entry updated.');
     }
 
     public function destroy(Request $request, string $resource, int $id): RedirectResponse
     {
         $this->authorizeAdmin($request);
-        DB::table(WebsiteResources::all()[$resource]['table'])->where('id', $id)->delete();
+        $def = $this->defs($request)[$resource];
+
+        if (isset($def['delete_guard'])) {
+            [$table, $column, $message, $via] = $def['delete_guard'] + [3 => 'id'];
+            $key = $via === 'id' ? $id : DB::table($def['table'])->where('id', $id)->value($via);
+            if (DB::table($table)->where($column, $key)->exists()) {
+                return back()->with('error', $message);
+            }
+        }
+
+        DB::table($def['table'])->where('id', $id)->delete();
 
         return back()->with('status', 'Entry deleted.');
     }
@@ -102,7 +137,14 @@ class WebsiteController extends Controller
     {
         $rules = [];
         foreach ($def['fields'] as $f) {
-            $rules[$f['name']] = $f['type'] === 'checkbox' ? 'boolean' : $f['rules'];
+            $rules[$f['name']] = $f['type'] === 'checkbox' ? 'boolean' : array_map(function (string $rule) use ($id) {
+                if (! str_starts_with($rule, 'unique:')) {
+                    return $rule;
+                }
+                [$table, $column] = explode(',', substr($rule, 7));
+
+                return Rule::unique($table, $column)->ignore($id);
+            }, explode('|', $f['rules']));
         }
         if ($resource === 'pages') {
             $rules['slug'] = ['nullable', 'string', 'max:150', 'alpha_dash', Rule::unique('website_pages', 'slug')->ignore($id)];
@@ -123,11 +165,70 @@ class WebsiteController extends Controller
             $out[$f['name']] = match ($f['type']) {
                 'checkbox' => (int) (bool) $value,
                 'number' => (int) ($value ?? ($f['default'] ?? 0)),
+                'select' => ($value === '' || $value === null) ? null : $value,
                 default => $value,
             };
         }
 
+        if ($resource === 'members' && blank($out['card_no'] ?? null)) {
+            $out['card_no'] = 'LIB-'.str_pad((string) ((int) DB::table('library_members')->max('id') + 1), 5, '0', STR_PAD_LEFT);
+        }
+
         return $out;
+    }
+
+    /** @param list<array<string, mixed>> $fields */
+    private function withOptions(array $fields): array
+    {
+        return array_map(function (array $f) {
+            if (! isset($f['options_query'])) {
+                return $f;
+            }
+            $q = $f['options_query'];
+            unset($f['options_query']);
+
+            if ($q === 'staff') {
+                $f['options'] = DB::table('users')->where('role', 'staff')->orderBy('name')->get(['id', 'name'])
+                    ->map(fn ($u) => ['value' => (string) $u->id, 'label' => $u->name])->all();
+            } elseif ($q === 'students') {
+                $f['options'] = DB::table('users')
+                    ->join('student_profiles', 'student_profiles.user_id', '=', 'users.id')
+                    ->where('student_profiles.status', 'active')
+                    ->orderBy('users.name')->limit(1000)
+                    ->get(['users.id', 'users.name', 'student_profiles.admission_no'])
+                    ->map(fn ($u) => ['value' => (string) $u->id, 'label' => "{$u->name} ({$u->admission_no})"])->all();
+            } else {
+                [$table, $value, $label, $blank] = $q + [3 => null];
+                $f['options'] = [
+                    ...($blank ? [['value' => '', 'label' => $blank]] : []),
+                    ...DB::table($table)->orderBy($label)->get([$value, $label])->map(fn ($r) => ['value' => (string) $r->$value, 'label' => $r->$label])->all(),
+                ];
+            }
+
+            return $f;
+        }, $fields);
+    }
+
+    private function afterSave(string $resource, int $id): void
+    {
+        if ($resource === 'sessions' && DB::table('academic_sessions')->where('id', $id)->value('is_current')) {
+            DB::table('academic_sessions')->where('id', '!=', $id)->update(['is_current' => false]);
+        }
+    }
+
+    private function group(Request $request): string
+    {
+        return $request->route('group') ?? 'website';
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    private function defs(Request $request): array
+    {
+        return match ($this->group($request)) {
+            'academic' => AcademicResources::all(),
+            'website' => WebsiteResources::all(),
+            default => OperationsResources::resources($this->group($request)),
+        };
     }
 
     private function authorizeAdmin(Request $request): void

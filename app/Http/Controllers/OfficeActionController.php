@@ -115,37 +115,7 @@ class OfficeActionController extends Controller
             'guardian_mobile' => ['nullable', 'string', 'max:30'],
         ]);
 
-        $username = Str::slug($data['name'], '.').'.'.random_int(100, 999);
-        $roll = (int) StudentProfile::query()
-            ->where('class_name', $data['class_name'])
-            ->where('section', $data['section'])
-            ->selectRaw('max(cast(roll_no as integer)) as roll')
-            ->value('roll') + 1;
-        $last = StudentProfile::query()->where('admission_no', 'like', '2026-%')->max('admission_no');
-        $admission = '2026-'.str_pad((string) (((int) substr((string) $last, 5)) + 1), 5, '0', STR_PAD_LEFT);
-
-        $user = User::create([
-            'name' => $data['name'],
-            'username' => $username,
-            'email' => $username.'@borno.test',
-            'phone' => $data['guardian_mobile'] ?? null,
-            'role' => 'student',
-            'password' => 'Demo@1234',
-        ]);
-
-        $user->profile()->create([
-            'admission_no' => $admission,
-            'class_name' => $data['class_name'],
-            'section' => $data['section'],
-            'roll_no' => (string) $roll,
-            'gender' => $data['gender'],
-            'date_of_birth' => $data['date_of_birth'] ?? null,
-            'shift' => 'Morning',
-            'guardian_name' => $data['guardian_name'] ?? null,
-            'guardian_mobile' => $data['guardian_mobile'] ?? null,
-            'status' => 'active',
-            'session' => '2026',
-        ]);
+        $user = \App\Support\StudentEnrollment::enroll($data);
 
         return redirect('/app/students/'.$user->id);
     }
@@ -177,31 +147,7 @@ class OfficeActionController extends Controller
         $row = DB::table('fee_invoices')->where('id', $invoice)->first();
         abort_if($row === null, 404);
 
-        $amount = min($data['amount'], max(0, (int) $row->payable - (int) $row->paid));
-        abort_if($amount < 1, 422);
-        $paid = (int) $row->paid + $amount;
-
-        DB::table('fee_invoices')->where('id', $invoice)->update([
-            'paid' => $paid,
-            'status' => $paid >= (int) $row->payable ? 'paid' : 'partial',
-        ]);
-        DB::table('fee_payments')->insert([
-            'user_id' => $row->user_id,
-            'receipt_no' => 'RCP-'.now()->format('ymdHis'),
-            'paid_on' => now()->toDateString(),
-            'method' => 'Cash',
-            'amount' => $amount,
-            'late_fee' => 0,
-            'status' => 'posted',
-        ]);
-
-        $profile = StudentProfile::query()->where('user_id', $row->user_id)->first();
-        if ($profile !== null) {
-            $profile->update([
-                'dues_total' => max(0, (int) $profile->dues_total - $amount),
-                'dues_count' => $paid >= (int) $row->payable ? max(0, (int) $profile->dues_count - 1) : $profile->dues_count,
-            ]);
-        }
+        abort_if(\App\Support\FeePayments::collect($row, $data['amount'], 'Cash') === null, 422);
 
         return redirect('/app/fees');
     }

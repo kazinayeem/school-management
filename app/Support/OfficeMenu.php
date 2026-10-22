@@ -105,6 +105,7 @@ class OfficeMenu
             ['caption' => 'Campus', 'items' => [
                 ['label' => 'Library', 'icon' => 'BookOpen', 'children' => [
                     ['label' => 'Give a Book', 'href' => '/app/library'],
+                    ['label' => 'Take Books Back', 'href' => '/app/library/desk'],
                     ['label' => 'Overdue & Fines', 'href' => '/app/library/fines'],
                 ]],
             ]],

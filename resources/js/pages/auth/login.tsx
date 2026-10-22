@@ -9,7 +9,7 @@ type Role = 'admin' | 'staff' | 'student' | 'parent';
 
 const roles: { key: Role; label: string; icon: typeof User; demo: string; who: string }[] = [
     { key: 'admin', label: 'Admin', icon: ShieldCheck, demo: 'superadmin', who: 'Super Admin' },
-    { key: 'staff', label: 'Staff', icon: Users, demo: 'staff', who: 'Staff Member' },
+    { key: 'staff', label: 'Staff', icon: Users, demo: 'staff', who: 'John Smith' },
     { key: 'student', label: 'Student', icon: GraduationCap, demo: 'student', who: 'Ethan Parker' },
     { key: 'parent', label: 'Parent', icon: User, demo: 'parent', who: 'Amelia Parker' },
 ];

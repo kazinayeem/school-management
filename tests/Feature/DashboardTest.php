@@ -19,6 +19,7 @@ class DashboardTest extends TestCase
     {
         $this->actingAs($user = User::factory()->create(['role' => 'admin']));
 
-        $this->get('/dashboard')->assertOk();
+        $this->get('/dashboard')->assertRedirect('/app');
+        $this->get('/app')->assertOk();
     }
 }

@@ -9,6 +9,9 @@ Route::get('/', function () {
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', \App\Http\Controllers\DashboardController::class)->name('dashboard');
+    Route::get('app/{page?}', [\App\Http\Controllers\OfficeController::class, 'show'])
+        ->where('page', '.*')
+        ->name('office');
 
     Route::post('student/profile', [\App\Http\Controllers\StudentPortalController::class, 'updateProfile'])->name('student.profile.update');
     Route::post('student/password', [\App\Http\Controllers\StudentPortalController::class, 'updatePassword'])->name('student.password.update');

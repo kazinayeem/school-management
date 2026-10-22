@@ -36,7 +36,7 @@ class AuthenticatedSessionController extends Controller
         $home = match ($request->user()->role) {
             'student' => '/student',
             'parent' => '/parent',
-            default => route('dashboard', absolute: false),
+            default => '/app',
         };
 
         return redirect()->intended($home);

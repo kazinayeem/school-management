@@ -32,7 +32,13 @@ class RoleDashboardTest extends TestCase
     {
         $this->actingAs(User::where('username', $username)->first())
             ->get('/dashboard')
-            ->assertInertia(fn (Assert $page) => $page->component("dashboards/{$role}")->has('stats', 4));
+            ->assertRedirect('/app');
+
+        $this->get('/app')->assertInertia(fn (Assert $page) => $page
+            ->component('office/home')
+            ->where('roleLabel', $role === 'admin' ? 'Super Admin' : 'Teacher')
+            ->has('dashboard.metrics', 4)
+            ->has('navigation', $role === 'admin' ? 7 : 5));
     }
 
     public function test_login_with_wrong_role_fails(): void
@@ -59,6 +65,11 @@ class RoleDashboardTest extends TestCase
         $this->get('/m/students')->assertNotFound();
 
         $this->actingAs(User::where('username', 'superadmin')->first())
-            ->get('/m/students')->assertOk();
+            ->get('/app/students')
+            ->assertInertia(fn (Assert $page) => $page->component('office/module')->where('module.title', 'Student List'));
+
+        $this->actingAs(User::where('username', 'staff')->first())
+            ->get('/app/fees')
+            ->assertNotFound();
     }
 }

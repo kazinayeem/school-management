@@ -6,13 +6,7 @@ class OfficeMenu
 {
     /** @var array<string, string> */
     private const HIDDEN = [
-        '/app/website/messages' => 'Website Enquiries',
-        '/app/settings/general' => 'General Settings',
-        '/app/settings/grading' => 'Grading Settings',
-        '/app/settings/attendance' => 'Attendance Rules',
-        '/app/system/users' => 'User Accounts',
-        '/app/sms' => 'Send SMS',
-        '/app/sms/log' => 'SMS Delivery Log',
+        '/app/leave' => 'Leave Applications',
     ];
 
     /** @return list<array{caption: ?string, items: list<array<string, mixed>>}> */
@@ -122,83 +116,151 @@ class OfficeMenu
 
     private static function admin(): array
     {
+        $children = fn (array $pairs) => array_map(fn ($p) => ['label' => $p[0], 'href' => $p[1]], $pairs);
+
         return [
             ['caption' => null, 'items' => [
                 ['label' => 'Dashboard', 'href' => '/app', 'icon' => 'LayoutGrid'],
             ]],
             ['caption' => 'Academic', 'items' => [
-                ['label' => 'Academic Structure', 'icon' => 'School', 'children' => [
-                    ['label' => 'Sessions', 'href' => '/app/academic/sessions'],
-                    ['label' => 'Classes', 'href' => '/app/academic/classes'],
-                    ['label' => 'Sections', 'href' => '/app/academic/sections'],
-                    ['label' => 'Subjects', 'href' => '/app/academic/subjects'],
-                    ['label' => 'Teaching Assignments', 'href' => '/app/academic/assignments'],
-                ]],
-                ['label' => 'Timetable', 'icon' => 'CalendarDays', 'children' => [
-                    ['label' => 'Class Routine', 'href' => '/app/timetable'],
-                    ['label' => 'Teacher Routine', 'href' => '/app/timetable/teacher'],
-                    ['label' => 'Substitutions', 'href' => '/app/timetable/substitutions'],
-                    ['label' => 'Bell Schedule', 'href' => '/app/timetable/periods'],
-                ]],
-                ['label' => 'Attendance', 'icon' => 'CalendarCheck', 'children' => [
-                    ['label' => 'Mark Attendance', 'href' => '/app/attendance'],
-                    ['label' => 'Register & Reports', 'href' => '/app/attendance/register'],
-                    ['label' => 'Staff Attendance', 'href' => '/app/attendance/staff'],
-                ]],
-                ['label' => 'Homework', 'href' => '/app/homework', 'icon' => 'BookOpen'],
-                ['label' => 'Exams & Results', 'icon' => 'GraduationCap', 'children' => [
-                    ['label' => 'Exam Setup', 'href' => '/app/exams'],
-                    ['label' => 'Admit Cards', 'href' => '/app/exams/admit-cards'],
-                    ['label' => 'Marks Entry', 'href' => '/app/exams/marks'],
-                    ['label' => 'Results', 'href' => '/app/exams/results'],
-                ]],
+                ['label' => 'Academic Structure', 'icon' => 'School', 'children' => $children([
+                    ['Sessions', '/app/academic/sessions'],
+                    ['Classes', '/app/academic/classes'],
+                    ['Sections', '/app/academic/sections'],
+                    ['Groups', '/app/academic/groups'],
+                    ['Shifts', '/app/academic/shifts'],
+                    ['Mediums', '/app/academic/mediums'],
+                    ['Subjects', '/app/academic/subjects'],
+                    ['Teaching Assignments', '/app/academic/assignments'],
+                ])],
+                ['label' => 'Timetable', 'icon' => 'CalendarClock', 'children' => $children([
+                    ['Class Routine', '/app/timetable'],
+                    ['Teacher Routine', '/app/timetable/teacher'],
+                    ['Substitutions', '/app/timetable/substitutions'],
+                    ['Bell Schedule', '/app/timetable/periods'],
+                ])],
+                ['label' => 'Attendance', 'icon' => 'CalendarCheck', 'children' => $children([
+                    ['Mark Attendance', '/app/attendance'],
+                    ['Register & Reports', '/app/attendance/register'],
+                    ['Staff Attendance', '/app/attendance/staff'],
+                    ['Punch Devices', '/app/devices'],
+                    ['Cards & Fingerprints', '/app/devices/people'],
+                    ['Punch Log', '/app/devices/punches'],
+                ])],
+                ['label' => 'Homework', 'href' => '/app/homework', 'icon' => 'NotebookPen'],
+                ['label' => 'Exams & Results', 'icon' => 'GraduationCap', 'children' => $children([
+                    ['Exam Setup', '/app/exams'],
+                    ['Admit Cards', '/app/exams/admit-cards'],
+                    ['Marks Entry', '/app/exams/marks'],
+                    ['Results', '/app/exams/results'],
+                ])],
             ]],
             ['caption' => 'People', 'items' => [
-                ['label' => 'Students', 'icon' => 'Users', 'children' => [
-                    ['label' => 'Student List', 'href' => '/app/students'],
-                    ['label' => 'Roll Numbers', 'href' => '/app/students/roll-numbers'],
-                    ['label' => 'ID Cards', 'href' => '/app/students/id-cards'],
-                ]],
-                ['label' => 'Online Admission', 'href' => '/app/students/new', 'icon' => 'Users'],
-                ['label' => 'Teachers & Staff', 'icon' => 'Users', 'children' => [
-                    ['label' => 'Staff List', 'href' => '/app/staff'],
-                    ['label' => 'Add Staff', 'href' => '/app/staff/new'],
-                ]],
-                ['label' => 'Parent Accounts', 'href' => '/app/parents', 'icon' => 'Users'],
-                ['label' => 'Leave', 'icon' => 'CalendarOff', 'children' => [
-                    ['label' => 'Applications', 'href' => '/app/leave'],
-                    ['label' => 'Leave Types', 'href' => '/app/leave/types'],
-                ]],
-                ['label' => 'Certificates', 'href' => '/app/certificates', 'icon' => 'GraduationCap'],
+                ['label' => 'Students', 'icon' => 'Users', 'children' => $children([
+                    ['Student List', '/app/students'],
+                    ['New Admission', '/app/students/new'],
+                    ['Bulk Import', '/app/students/import'],
+                    ['Roll Numbers', '/app/students/roll-numbers'],
+                    ['ID Cards', '/app/students/id-cards'],
+                    ['Promotion', '/app/students/promotion'],
+                ])],
+                ['label' => 'Online Admission', 'icon' => 'ClipboardList', 'children' => $children([
+                    ['Applications', '/app/admissions'],
+                    ['Portal Settings', '/app/admissions/settings'],
+                ])],
+                ['label' => 'Teachers & Staff', 'icon' => 'UserCog', 'children' => $children([
+                    ['Staff List', '/app/staff'],
+                    ['Add Staff', '/app/staff/new'],
+                ])],
+                ['label' => 'Parent Accounts', 'href' => '/app/system/parents', 'icon' => 'Contact'],
+                ['label' => 'Leave', 'icon' => 'CalendarOff', 'children' => $children([
+                    ['Applications', '/app/leave/applications'],
+                    ['Leave Types', '/app/leave/types'],
+                ])],
+                ['label' => 'Certificates', 'icon' => 'Award', 'children' => $children([
+                    ['Issue Certificate', '/app/certificates'],
+                    ['Issued Register', '/app/certificates/history'],
+                    ['Templates', '/app/certificates/templates'],
+                ])],
             ]],
             ['caption' => 'Finance', 'items' => [
-                ['label' => 'Fees', 'icon' => 'Wallet', 'children' => [
-                    ['label' => 'Fee Collection', 'href' => '/app/fees'],
-                    ['label' => 'Due List', 'href' => '/app/fees/dues'],
-                    ['label' => 'Collection Report', 'href' => '/app/fees/payments'],
-                    ['label' => 'Fee Structure', 'href' => '/app/fees/structure'],
-                ]],
-                ['label' => 'Online Payments', 'href' => '/app/payments', 'icon' => 'Wallet'],
-                ['label' => 'Payroll', 'icon' => 'Wallet', 'children' => [
-                    ['label' => 'Payroll Runs', 'href' => '/app/payroll'],
-                    ['label' => 'Salary Structures', 'href' => '/app/payroll/structures'],
-                ]],
-                ['label' => 'Accounting', 'href' => '/app/accounting', 'icon' => 'Wallet'],
+                ['label' => 'Fees', 'icon' => 'Banknote', 'children' => $children([
+                    ['Fee Collection', '/app/fees'],
+                    ['Due List', '/app/fees/dues'],
+                    ['Collection Report', '/app/fees/payments'],
+                    ['Generate Invoices', '/app/fees/generate'],
+                    ['Fee Structure', '/app/fees/structure'],
+                    ['Waivers & Discounts', '/app/fees/waivers'],
+                ])],
+                ['label' => 'Online Payments', 'icon' => 'CreditCard', 'children' => $children([
+                    ['Transactions', '/app/fees/online'],
+                    ['Payment Gateway', '/app/fees/gateway'],
+                ])],
+                ['label' => 'Payroll', 'icon' => 'Wallet', 'children' => $children([
+                    ['Payroll Runs', '/app/payroll'],
+                    ['Salary Structures', '/app/payroll/structures'],
+                    ['Salary Components', '/app/payroll/components'],
+                ])],
+                ['label' => 'Accounting', 'icon' => 'BookOpen', 'children' => $children([
+                    ['Voucher Entry', '/app/accounting'],
+                    ['Voucher Register', '/app/accounting/register'],
+                    ['Chart of Accounts', '/app/accounting/chart'],
+                    ['Cash Book', '/app/accounting/cash-book'],
+                    ['Trial Balance', '/app/accounting/trial-balance'],
+                    ['Income & Expenditure', '/app/accounting/income-expense'],
+                ])],
             ]],
             ['caption' => 'Campus', 'items' => [
-                ['label' => 'Library', 'icon' => 'BookOpen', 'children' => [
-                    ['label' => 'Give a Book', 'href' => '/app/library'],
-                    ['label' => 'Overdue & Fines', 'href' => '/app/library/fines'],
-                    ['label' => 'All Books', 'href' => '/app/library/books'],
-                ]],
-                ['label' => 'Transport', 'icon' => 'Bus', 'children' => [
-                    ['label' => 'Who Rides', 'href' => '/app/transport'],
-                    ['label' => 'Routes & Stops', 'href' => '/app/transport/routes'],
-                    ['label' => 'Vehicles', 'href' => '/app/transport/vehicles'],
-                ]],
+                ['label' => 'Library', 'icon' => 'Library', 'children' => $children([
+                    ['Give a Book', '/app/library'],
+                    ['Take Books Back', '/app/library/desk'],
+                    ['Overdue & Fines', '/app/library/fines'],
+                    ['Reserved Books', '/app/library/reservations'],
+                    ['All Books', '/app/library/books'],
+                    ['Book Categories', '/app/library/categories'],
+                    ['Library Cards', '/app/library/members'],
+                    ['Settings', '/app/library/settings'],
+                ])],
+                ['label' => 'Transport', 'icon' => 'Bus', 'children' => $children([
+                    ['Who Rides', '/app/transport'],
+                    ['Daily Manifest', '/app/transport/manifest'],
+                    ['Routes & Stops', '/app/transport/routes'],
+                    ['Vehicles', '/app/transport/vehicles'],
+                ])],
             ]],
             ['caption' => 'Communication', 'items' => [
                 ['label' => 'Notices', 'href' => '/app/notices', 'icon' => 'Megaphone'],
+                ['label' => 'SMS', 'icon' => 'MessageSquare', 'children' => $children([
+                    ['Send SMS', '/app/sms'],
+                    ['Templates', '/app/sms/templates'],
+                    ['Delivery Log', '/app/sms/log'],
+                ])],
+                ['label' => 'Website', 'icon' => 'Globe', 'children' => $children([
+                    ['Messages', '/app/website/messages'],
+                    ['Pages', '/app/website/pages'],
+                    ['Hero Banners', '/app/website/banners'],
+                    ['Events', '/app/website/events'],
+                    ['Gallery', '/app/website/gallery'],
+                    ['Testimonials', '/app/website/testimonials'],
+                    ['FAQs', '/app/website/faqs'],
+                    ['Site Settings', '/app/website/settings'],
+                ])],
+            ]],
+            ['caption' => 'System', 'items' => [
+                ['label' => 'User Accounts', 'href' => '/app/system/users', 'icon' => 'UserCheck'],
+                ['label' => 'Audit Log', 'href' => '/app/system/audit', 'icon' => 'History'],
+                ['label' => 'Settings', 'icon' => 'Settings', 'children' => $children([
+                    ['General', '/app/settings/general'],
+                    ['Grading', '/app/settings/grading'],
+                    ['Attendance Rules', '/app/settings/attendance'],
+                    ['Fees & Late Fee', '/app/settings/fees'],
+                    ['SMS Gateway', '/app/sms/settings'],
+                    ['Email / SMTP', '/app/settings/mail'],
+                    ['Appearance', '/app/settings/appearance'],
+                    ['Languages', '/app/settings/languages'],
+                    ['Roles & Permissions', '/app/system/roles'],
+                    ['Backup & Restore', '/app/settings/backup'],
+                ])],
             ]],
         ];
     }

@@ -26,6 +26,13 @@ Route::get('results', [\App\Http\Controllers\PublicController::class, 'results']
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', \App\Http\Controllers\DashboardController::class)->name('dashboard');
+    Route::prefix('app/website')->controller(\App\Http\Controllers\WebsiteController::class)->group(function () {
+        Route::post('settings', 'saveSettings')->name('website.settings.save');
+        Route::get('{resource}', 'index')->where('resource', 'pages|banners|events|gallery|testimonials|faqs|settings')->name('website.index');
+        Route::post('{resource}', 'store')->where('resource', 'pages|banners|events|gallery|testimonials|faqs')->name('website.store');
+        Route::put('{resource}/{id}', 'update')->where('resource', 'pages|banners|events|gallery|testimonials|faqs')->whereNumber('id')->name('website.update');
+        Route::delete('{resource}/{id}', 'destroy')->where('resource', 'pages|banners|events|gallery|testimonials|faqs')->whereNumber('id')->name('website.destroy');
+    });
     Route::post('app/notices', [\App\Http\Controllers\OfficeActionController::class, 'storeNotice'])->name('office.notices.store');
     Route::post('app/attendance', [\App\Http\Controllers\OfficeActionController::class, 'storeAttendance'])->name('office.attendance.store');
     Route::post('app/homework', [\App\Http\Controllers\OfficeActionController::class, 'storeHomework'])->name('office.homework.store');

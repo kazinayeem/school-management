@@ -1,4 +1,5 @@
 import { Link, router, useForm } from '@inertiajs/react';
+import { Download, Eye, Pencil, ReceiptText, Search, Upload, UserRound } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 
 type StudentRow = {
@@ -15,7 +16,7 @@ type StudentRow = {
 };
 
 export function StudentsView({ module }: { module: Record<string, any> }) {
-    const filters = module.filters as { q: string; class: string; section: string; status: string; page: number };
+    const filters = module.filters as { q: string; session: string; class: string; section: string; status: string; page: number };
     const [q, setQ] = useState(filters.q);
     const rows = module.rows as StudentRow[];
 
@@ -35,13 +36,19 @@ export function StudentsView({ module }: { module: Record<string, any> }) {
                     <h1 className="text-2xl font-semibold text-slate-900">{module.title}</h1>
                     <p className="mt-0.5 text-sm text-slate-600">{module.subtitle}</p>
                 </div>
-                <div className="flex gap-2">
-                    <button type="button" onClick={() => window.print()} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+                <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
                         Print
                     </button>
+                    <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+                        <Download className="h-4 w-4" /> Export
+                    </button>
+                    <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+                        <Upload className="h-4 w-4" /> Import
+                    </button>
                     {module.canAdmit && (
-                        <Link href="/app/students/new" className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
-                            New admission
+                        <Link href="/app/students/new" className="rounded-lg bg-[#b31299] px-3 py-2 text-sm font-semibold text-white hover:bg-[#9a0e84]">
+                            + New admission
                         </Link>
                     )}
                 </div>
@@ -52,8 +59,12 @@ export function StudentsView({ module }: { module: Record<string, any> }) {
                     value={q}
                     onChange={(event) => setQ(event.target.value)}
                     placeholder="Name, admission no, or guardian mobile"
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm md:col-span-2"
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
+                <select aria-label="Session" value={filters.session} onChange={(event) => visit({ session: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <option value="2026">2026 (current)</option>
+                    <option value="all">All sessions</option>
+                </select>
                 <select aria-label="All classes" value={filters.class} onChange={(event) => visit({ class: event.target.value, section: '' })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
                     <option value="">All classes</option>
                     {(module.classes as string[]).map((name) => (
@@ -106,10 +117,15 @@ export function StudentsView({ module }: { module: Record<string, any> }) {
                                     <td className="px-4 py-3">
                                         <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700">{row.status}</span>
                                     </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <Link href={`/app/students/${row.id}`} title="View profile" className="rounded-lg px-2 py-1 text-sm font-semibold text-indigo-600 hover:bg-indigo-50">
-                                            View profile
-                                        </Link>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Link href={`/app/students/${row.id}`} title="View profile" aria-label={`View ${row.name}`} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#b31299]">
+                                                <Eye className="h-4 w-4" />
+                                            </Link>
+                                            <button type="button" title="Edit student" aria-label={`Edit ${row.name}`} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#b31299]">
+                                                <Pencil className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -559,46 +575,153 @@ export function LeaveView({ module }: { module: Record<string, any> }) {
 }
 
 export function FeesView({ module }: { module: Record<string, any> }) {
-    const rows = module.rows as { id: number; student: string; label: string; number: string; payable: number; paid: number; status: string }[];
+    const rows = module.rows as {
+        id: number;
+        student: string;
+        admissionNo: string | null;
+        class: string | null;
+        section: string | null;
+        label: string;
+        number: string;
+        payable: number;
+        paid: number;
+        status: string;
+    }[];
+    const classes = [...new Set(rows.map((row) => row.class).filter(Boolean))] as string[];
+    const [className, setClassName] = useState('');
+    const [section, setSection] = useState('');
+    const [query, setQuery] = useState('');
+    const active = className !== '' || query.trim() !== '';
+    const visible = rows.filter((row) => {
+        if (className && row.class !== className) return false;
+        if (section && row.section !== section) return false;
+        const needle = query.trim().toLowerCase();
+        if (needle && !`${row.student} ${row.admissionNo ?? ''} ${row.number}`.toLowerCase().includes(needle)) return false;
+        return true;
+    });
 
     return (
-        <div className="mx-auto max-w-[1600px] space-y-6">
+        <div className="mx-auto max-w-[1600px] space-y-5">
             <div>
-                <h1 className="text-2xl font-semibold text-slate-900">{module.title}</h1>
+                <h1 className="text-2xl font-bold text-slate-900">{module.title}</h1>
                 <p className="mt-0.5 text-sm text-slate-600">{module.subtitle}</p>
             </div>
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <table className="w-full min-w-[760px] text-sm">
-                    <thead className="bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
-                        <tr>
-                            {['Student', 'Invoice', 'Payable', 'Paid', 'Status', 'Collect'].map((header) => (
-                                <th key={header} className="px-4 py-3 text-left">{header}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {rows.map((row) => (
-                            <tr key={row.id}>
-                                <td className="px-4 py-3 font-medium">{row.student}</td>
-                                <td className="px-4 py-3">
-                                    {row.label}
-                                    <span className="mt-0.5 block font-mono text-xs text-slate-400">{row.number}</span>
-                                </td>
-                                <td className="px-4 py-3">Tk {row.payable.toLocaleString()}</td>
-                                <td className="px-4 py-3">Tk {row.paid.toLocaleString()}</td>
-                                <td className="px-4 py-3 capitalize">{row.status}</td>
-                                <td className="px-4 py-3">
-                                    {row.status !== 'paid' && (
-                                        <button type="button" onClick={() => router.post(route('office.fees.collect', row.id), { amount: row.payable - row.paid })} className="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-semibold text-white">
-                                            Collect Tk {(row.payable - row.paid).toLocaleString()}
-                                        </button>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-[#b31299]">
+                            <UserRound className="h-4 w-4" />
+                        </span>
+                        <div>
+                            <h2 className="font-semibold text-slate-900">Find student</h2>
+                            <p className="text-xs text-slate-400">Class or section change will clear the current selection.</p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Collected today</p>
+                        <p className="font-bold text-slate-800">Tk {Number(module.collectedToday ?? 0).toLocaleString()}</p>
+                    </div>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-4">
+                    <label className="text-xs font-medium text-slate-600">
+                        Session
+                        <select className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                            <option>2026 · Current</option>
+                        </select>
+                    </label>
+                    <label className="text-xs font-medium text-slate-600">
+                        Class
+                        <select
+                            value={className}
+                            onChange={(event) => {
+                                setClassName(event.target.value);
+                                setSection('');
+                            }}
+                            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-700"
+                        >
+                            <option value="">Choose class</option>
+                            {classes.map((name) => <option key={name}>{name}</option>)}
+                        </select>
+                    </label>
+                    <label className="text-xs font-medium text-slate-600">
+                        Section
+                        <select disabled={className === ''} value={section} onChange={(event) => setSection(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-700 disabled:bg-slate-50">
+                            <option value="">All sections</option>
+                            <option>A</option>
+                            <option>B</option>
+                        </select>
+                    </label>
+                    <label className="text-xs font-medium text-slate-600">
+                        Roll, admission number or name
+                        <span className="relative mt-1 block">
+                            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <input
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                                placeholder="Search student..."
+                                className="h-10 w-full rounded-lg border border-slate-200 pr-3 pl-9 text-sm outline-none focus:border-[#b31299]"
+                            />
+                        </span>
+                    </label>
+                </div>
+            </section>
+
+            {!active ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-24 text-center shadow-sm">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                        <ReceiptText className="h-5 w-5" />
+                    </span>
+                    <h2 className="mt-3 font-semibold text-slate-700">Select a student to start</h2>
+                    <p className="mt-1 text-sm text-slate-400">Choose a class to browse students or use the search field.</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    {visible.length === 0 ? (
+                        <p className="px-6 py-16 text-center text-sm text-slate-400">No invoices match this student or filter.</p>
+                    ) : (
+                        <table className="w-full min-w-[760px] text-sm">
+                            <thead className="bg-slate-50 text-[11px] tracking-wide text-slate-500 uppercase">
+                                <tr>
+                                    {['Student', 'Invoice', 'Payable', 'Paid', 'Status', 'Collect'].map((header) => (
+                                        <th key={header} className="px-4 py-3 text-left">{header}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {visible.map((row) => (
+                                    <tr key={row.id} className="hover:bg-slate-50">
+                                        <td className="px-4 py-3">
+                                            <span className="block font-medium">{row.student}</span>
+                                            <span className="block text-xs text-slate-400">{row.class}{row.section ? ` · ${row.section}` : ''}</span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {row.label}
+                                            <span className="mt-0.5 block font-mono text-xs text-slate-400">{row.number}</span>
+                                        </td>
+                                        <td className="px-4 py-3">Tk {row.payable.toLocaleString()}</td>
+                                        <td className="px-4 py-3">Tk {row.paid.toLocaleString()}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${row.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : row.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{row.status}</span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {row.status !== 'paid' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => router.post(route('office.fees.collect', row.id), { amount: row.payable - row.paid })}
+                                                    className="rounded-lg bg-[#b31299] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#9a0e84]"
+                                                >
+                                                    Collect Tk {(row.payable - row.paid).toLocaleString()}
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -621,9 +744,10 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
     );
 }
 
-function query(filters: { q: string; class: string; section: string; status: string; page: number }) {
+function query(filters: { q: string; session: string; class: string; section: string; status: string; page: number }) {
     return new URLSearchParams({
         q: filters.q,
+        session: filters.session,
         class: filters.class,
         section: filters.section,
         status: filters.status,

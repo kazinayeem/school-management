@@ -104,7 +104,7 @@ class OfficeData
             return self::homeworkBoard($request);
         }
 
-        if ($path === '/app/leave') {
+        if ($path === '/app/leave' || $path === '/app/leave/applications') {
             return self::leaveBoard();
         }
 
@@ -117,6 +117,7 @@ class OfficeData
             ?? 'Module';
 
         [$headers, $rows, $subtitle] = match (true) {
+            str_starts_with($path, '/app/settings') || in_array($path, ['/app/sms/settings', '/app/system/audit', '/app/system/roles'], true) => [['Setting', 'Value'], [], 'Nothing has been configured here yet.'],
             str_contains($path, 'students') => self::students(),
             str_contains($path, 'staff') || str_contains($path, 'parents') => self::people($path),
             str_contains($path, 'attendance') => self::attendance(),
@@ -197,6 +198,7 @@ class OfficeData
         $class = (string) $request->query('class', '');
         $section = (string) $request->query('section', '');
         $status = (string) $request->query('status', 'active');
+        $session = (string) $request->query('session', '2026');
         $search = trim((string) $request->query('q', ''));
         $page = max(1, (int) $request->query('page', 1));
 
@@ -207,6 +209,9 @@ class OfficeData
 
         if ($status !== 'all') {
             $query->where('student_profiles.status', $status === '' ? 'active' : $status);
+        }
+        if ($session !== '' && $session !== 'all') {
+            $query->where('student_profiles.session', $session);
         }
         if ($class !== '') {
             $query->where('student_profiles.class_name', $class);
@@ -230,7 +235,7 @@ class OfficeData
             'title' => 'Students',
             'subtitle' => 'Search, filter and manage the student body.',
             'canAdmit' => $request->user()?->role === 'admin',
-            'filters' => ['q' => $search, 'class' => $class, 'section' => $section, 'status' => $status, 'page' => $page],
+            'filters' => ['q' => $search, 'session' => $session, 'class' => $class, 'section' => $section, 'status' => $status, 'page' => $page],
             'classes' => collect(range(1, 10))->map(fn ($n) => "Class {$n}")->all(),
             'total' => $total,
             'from' => $total === 0 ? 0 : (($page - 1) * 50) + 1,
@@ -439,13 +444,17 @@ class OfficeData
     {
         $rows = DB::table('fee_invoices')
             ->join('users', 'users.id', '=', 'fee_invoices.user_id')
+            ->leftJoin('student_profiles', 'student_profiles.user_id', '=', 'users.id')
             ->orderBy('fee_invoices.status')
             ->orderBy('users.name')
-            ->limit(80)
+            ->limit(300)
             ->get()
             ->map(fn ($row) => [
                 'id' => $row->id,
                 'student' => $row->name,
+                'admissionNo' => $row->admission_no,
+                'class' => $row->class_name,
+                'section' => $row->section,
                 'label' => $row->label,
                 'number' => $row->invoice_no,
                 'payable' => (int) $row->payable,
@@ -456,8 +465,9 @@ class OfficeData
 
         return [
             'kind' => 'fees',
-            'title' => 'Fee collection',
-            'subtitle' => 'Unpaid and partially paid invoices.',
+            'title' => 'Fee Collection',
+            'subtitle' => 'Find a student, take the payment, print the receipt.',
+            'collectedToday' => (int) DB::table('fee_payments')->whereDate('paid_on', today())->sum('amount'),
             'rows' => $rows,
         ];
     }

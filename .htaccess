@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. Security: Block direct access to sensitive files and core folders
+    RewriteRule ^(\.env|\.git|composer\.(json|lock)|artisan|phpunit\.xml)(/.*)?$ - [R=404,L]
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor)/ - [R=404,L]
+
+    # 2. (Optional) Force HTTPS - Uncomment the next two lines if needed
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # 3. Redirect all requests to the public folder
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
